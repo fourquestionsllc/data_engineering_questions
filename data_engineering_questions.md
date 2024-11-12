@@ -285,3 +285,23 @@ B. Deploy the application on the EKs.
 C. Deploy the application to the EcS that uses the Fargate tasks.
 
 D. Deploy the application on the Ec2 Instance.
+
+## answer:
+
+The correct answer is:
+
+C. Deploy the application to the ECS that uses the Fargate tasks.
+
+Explanation:
+
+To meet the requirement for serverless infrastructure, AWS Fargate is the best choice. Fargate is a serverless compute engine for containers that works with Amazon ECS (Elastic Container Service). It allows you to run containers without managing the underlying EC2 instances, providing a truly serverless experience.
+
+Why the other options are incorrect:
+
+A. Deploy the application to the ECS that uses node groups: This refers to ECS with EC2 instances, where you're still managing the EC2 instances (not serverless).
+
+B. Deploy the application on the EKS: Amazon EKS (Elastic Kubernetes Service) can be used for running containers, but it’s not a completely serverless solution unless combined with something like Fargate. EKS typically requires managing Kubernetes nodes (EC2 instances), which is not fully serverless.
+
+D. Deploy the application on the EC2 Instance: This option involves managing EC2 instances yourself, which requires infrastructure management, making it not a serverless option.
+
+Conclusion: To achieve serverless infrastructure with minimal management, AWS Fargate in ECS is the optimal choice.
