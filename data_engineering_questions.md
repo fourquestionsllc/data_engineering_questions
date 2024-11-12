@@ -47,3 +47,17 @@ The unfit options for Aurora are:
 A. Authentication using IAM is unavailable when it comes to Aurora cluster users (This is incorrect; IAM authentication is available.)
 
 E. Admin gets privileges to connect to the Aurora cluster via SSH (SSH access is not available on Aurora).
+
+
+# Topic: Terraform
+
+Fill in the blanks to protect the declared database password variable so that it is not exposed on CLloutput.
+(There are multiple drop-downs below, Select a correct response for each drop-down)
+
+```
+variable "db password" {
+  description="Database administrator password"
+  type = ??
+  ?? =??
+}
+```
