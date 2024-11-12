@@ -329,3 +329,43 @@ variable "resource tags" {
   }
 }
 ```
+
+## answer:
+
+To complete the Terraform code snippet with variable validation for the project and environment tags, we need to use the validation block to ensure that the values for these tags meet specific conditions. In this case, we want to validate that the project tag only contains letters, numbers, and hyphens.
+
+Here’s the corrected and complete code snippet:
+
+```hcl
+variable "resource_tags" {
+  description = "Tags to set for all resources"
+  type        = map(string)
+  default = {
+    project    = "dev-project",
+    environment = "dev"
+  }
+  
+  validation {
+    condition     = length(regexall("/[^a-zA-Z0-9-]/", var.resource_tags["project"])) == 0
+    error_message = "Project tag must only contain letters, numbers, and hyphens."
+  }
+
+  validation {
+    condition     = length(regexall("/[^a-zA-Z0-9-]/", var.resource_tags["environment"])) == 0
+    error_message = "Environment tag must only contain letters, numbers, and hyphens."
+  }
+}
+```
+
+Explanation of the completed code:
+
+* validation block: This block is used to enforce constraints on the values of variables.
+* condition: The condition specifies the logic to validate the variable. In this case, we're using regexall to check for invalid characters (anything other than letters, numbers, and hyphens).
+* error_message: The message displayed if the condition fails. This is the validation error message for the user.
+* The first validation block ensures that the project tag only contains alphanumeric characters and hyphens (-).
+* The second validation block ensures that the environment tag meets the same condition.
+
+Key drop-down selections:
+* validation block to add the conditions.
+* condition with the regex to validate the characters.
+error_message to provide an appropriate error when validation fails.
