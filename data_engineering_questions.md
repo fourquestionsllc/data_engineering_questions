@@ -230,7 +230,7 @@ Complete the following code to create a valid Terraform configuration file.
 ```hcl
 resource "docker container" "web"{
   name = "hello-world'
-  ?? = docker image.nginx.latest
+  ?? = docker_image.nginx.latest
   {
     external = 8081
     ?? =80
