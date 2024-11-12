@@ -270,3 +270,18 @@ Key drop-down selections:
 * external = 8081 (the external port on the host machine).
 
 This configuration will create a Docker container named hello-world running an NGINX image, mapping port 80 inside the container to port 8081 on the host machine.
+
+
+# Topic: AWS ECS
+
+## questions
+
+You are in charge of creating a serverless infrastructure. The application is built on a docker image and is pushed to the ECR. Which of the following options satisfies the requirement?
+
+A. Deploy the application to the EcS that uses node groups.
+
+B. Deploy the application on the EKs.
+
+C. Deploy the application to the EcS that uses the Fargate tasks.
+
+D. Deploy the application on the Ec2 Instance.
