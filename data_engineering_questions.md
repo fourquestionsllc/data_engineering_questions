@@ -51,6 +51,8 @@ E. Admin gets privileges to connect to the Aurora cluster via SSH (SSH access is
 
 # Topic: Terraform
 
+## Question:
+
 Fill in the blanks to protect the declared database password variable so that it is not exposed on CLloutput.
 (There are multiple drop-downs below, Select a correct response for each drop-down)
 
@@ -61,3 +63,23 @@ variable "db password" {
   ?? =??
 }
 ```
+
+## Answer:
+
+To securely manage a sensitive variable like a database password in Terraform, we can use the following code:
+
+```hcl
+Copy code
+variable "db_password" {
+  description = "Database administrator password"
+  type        = string
+  sensitive   = true
+}
+```
+
+Here’s a breakdown of the responses for each drop-down:
+
+* type: string — the password should be defined as a string.
+* sensitive: true — marking the variable as sensitive will prevent it from being displayed in CLI output.
+
+This configuration ensures that the password is treated as a sensitive string variable, reducing the risk of exposure in Terraform outputs or logs.
