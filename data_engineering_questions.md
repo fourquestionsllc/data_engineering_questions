@@ -218,3 +218,22 @@ Summary of Incorrect Answers:
 B. (Incorrect: Misstated read/write availability after data loss)
 
 C. (Incorrect: Misstated scaling recommendations for write/read issues)
+
+# Topic: Terraform
+
+## question: 
+
+Complete the following code to create a valid Terraform configuration file.
+
+(There are multiple drop-downs below, Select a correct response for each drop-down)
+
+```hcl
+resource "docker container" "web"{
+  name = "hello-world'
+  ?? = docker image.nginx.latest
+  {
+    external = 8081
+    ?? =80
+  }
+}
+```
