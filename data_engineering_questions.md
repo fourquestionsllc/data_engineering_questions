@@ -87,7 +87,7 @@ This configuration ensures that the password is treated as a sensitive string va
 
 ## Question: 
 
-We have to apply column-level encoding to three of our tables which have major varchar and charcolumns available.
+We have to apply column-level encoding to three of our tables which have major varchar and char columns available.
 
 Which encoding should we apply in this scenario?
 
