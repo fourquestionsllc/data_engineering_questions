@@ -237,3 +237,36 @@ resource "docker container" "web"{
   }
 }
 ```
+
+## answer:
+
+To complete the provided Terraform configuration for a Docker container, we need to fix the syntax errors and ensure the proper arguments are used. Here is the corrected version of the Terraform configuration:
+
+```hcl
+Copy code
+resource "docker_container" "web" {
+  name  = "hello-world"
+  image = docker_image.nginx.latest
+  ports {
+    internal = 80
+    external = 8081
+  }
+}
+```
+
+Explanation of changes:
+
+* resource "docker_container" "web": The correct resource type is docker_container (not docker container).
+* name = "hello-world": Fixed the string closing quote (it was a mismatched quote).
+* image = docker_image.nginx.latest: In the original code, the image value should reference an image resource, such as docker_image.nginx.latest. This is typically defined separately, or you can use a direct string like "nginx:latest".
+* ports block: Inside the ports block, internal specifies the container's internal port, and external specifies the host machine's port.
+* internal = 80: Container’s internal port.
+* external = 8081: Host's external port.
+
+Key drop-down selections:
+
+* image should be set to docker_image.nginx.latest.
+* internal = 80 (the internal port in the container).
+* external = 8081 (the external port on the host machine).
+
+This configuration will create a Docker container named hello-world running an NGINX image, mapping port 80 inside the container to port 8081 on the host machine.
