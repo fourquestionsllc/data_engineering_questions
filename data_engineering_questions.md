@@ -82,3 +82,17 @@ Here’s a breakdown of the responses for each drop-down:
 * sensitive: true — marking the variable as sensitive will prevent it from being displayed in CLI output.
 
 This configuration ensures that the password is treated as a sensitive string variable, reducing the risk of exposure in Terraform outputs or logs.
+
+# Topic: AWs Redshift
+
+Question: We have to apply column-level encoding to three of our tables which have major varchar and charcolumns available.
+
+Which encoding should we apply in this scenario?
+
+A. LZ0 Encoding
+
+B. Zstandard (ZSTD) Encoding Algorithm
+
+C. Delta Encoding
+
+D. Byte-Dictionary Encoding
