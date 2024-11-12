@@ -1,4 +1,3 @@
-
 # Topic: AWS RDS
 
 ## question:
