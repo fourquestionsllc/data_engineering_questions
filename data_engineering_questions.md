@@ -167,3 +167,22 @@ Final Answer:
 C. Amazon Simple Storage Service (Amazon S3)
 
 D. Splunk
+
+
+# Topic: AWS RDS
+
+## question: 
+
+An organization wants to move from using the RDBMs solution to Aurora since they want it to behighly available. You, as an architect, need to understand the internals of Aurora. Which of thebelow answers are incorrect about Aurora?
+
+(Select all that apply)
+
+A. It handles the loss of up to two copies of data without affecting the db write availability and three copies of data without affecting the read availability.
+
+B. It handles the loss of up to two copies of data without affecting read availability and three copies of data without affecting the write availability.
+
+C. Scale OUT if your writes are creating issues and scale UP if your reads are creating issues.
+
+D. You can not create an unencrypted Aurora Replica for an encrypted Aurora DB cluster.
+
+E. You can not create an encrypted Aurora Replica for an unencrypted Aurora DB cluster.
