@@ -124,13 +124,45 @@ Therefore, Zstandard (ZSTD) Encoding is the most appropriate choice here.
 
 ## question:
 
-To which of the following destination, Amazon Kinesis Data Firehose is a fully managed servicefor delivering real-time streaming data?
+To which of the following destination, Amazon Kinesis Data Firehose is a fully managed service for delivering real-time streaming data?
 
 (Select all that apply)
 
 A. Amazon Elastic Compute Cloud (Amazon EC2)
 
 B. Amazon Elastic Container Service (Amazon ECS)
+
+C. Amazon Simple Storage Service (Amazon S3)
+
+D. Splunk
+
+## answer:
+
+The correct answers are:
+
+C. Amazon Simple Storage Service (Amazon S3)
+
+D. Splunk
+
+Explanation:
+
+Amazon Kinesis Data Firehose is a fully managed service for delivering real-time streaming data to specific destinations, which include:
+
+Amazon S3: A common destination for storing and archiving data.
+
+Amazon Redshift: For real-time data analytics within a data warehouse.
+
+Amazon Elasticsearch Service (now Amazon OpenSearch Service): For search and real-time analytics.
+
+Splunk: For real-time monitoring and analysis.
+
+Reasons the other options are incorrect:
+
+A. Amazon EC2: Kinesis Data Firehose does not deliver data directly to Amazon EC2 instances.
+
+B. Amazon ECS: Kinesis Data Firehose does not deliver data directly to Amazon ECS.
+
+Final Answer:
 
 C. Amazon Simple Storage Service (Amazon S3)
 
