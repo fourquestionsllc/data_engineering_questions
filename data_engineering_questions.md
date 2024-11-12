@@ -186,3 +186,35 @@ C. Scale OUT if your writes are creating issues and scale UP if your reads are c
 D. You can not create an unencrypted Aurora Replica for an encrypted Aurora DB cluster.
 
 E. You can not create an encrypted Aurora Replica for an unencrypted Aurora DB cluster.
+
+## answers:
+
+The following answers are incorrect about Amazon Aurora:
+
+B. It handles the loss of up to two copies of data without affecting read availability and three copies of data without affecting the write availability.
+
+Explanation: This statement is incorrect. Amazon Aurora handles the loss of up to two copies of data without affecting write availability and up to three copies of data without affecting read availability. The roles of read and write availability are reversed in this option.
+
+C. Scale OUT if your writes are creating issues and scale UP if your reads are creating issues.
+
+Explanation: This statement is incorrect. In Aurora, to scale writes, you would typically scale up, as the write capacity of Aurora instances is determined by the instance size. To scale reads, you would scale out by adding more Aurora Replicas. The statement incorrectly advises scaling out for writes and scaling up for reads.
+
+Correct statements:
+
+A. It handles the loss of up to two copies of data without affecting the db write availability and three copies of data without affecting the read availability.
+
+This is correct. Aurora maintains high availability and durability by storing copies of your data across multiple availability zones (AZs).
+
+D. You cannot create an unencrypted Aurora Replica for an encrypted Aurora DB cluster.
+
+This is correct. If the Aurora DB cluster is encrypted, all replicas of that cluster must also be encrypted.
+
+E. You cannot create an encrypted Aurora Replica for an unencrypted Aurora DB cluster.
+
+This is correct. If the original Aurora DB cluster is unencrypted, its replicas must also be unencrypted.
+
+Summary of Incorrect Answers:
+
+B. (Incorrect: Misstated read/write availability after data loss)
+
+C. (Incorrect: Misstated scaling recommendations for write/read issues)
