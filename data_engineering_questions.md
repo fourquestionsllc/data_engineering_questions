@@ -108,6 +108,7 @@ B. Zstandard (ZSTD) Encoding Algorithm
 Explanation:
 
 Zstandard (ZSTD) Encoding is highly efficient for compressing variable-length strings, such as VARCHAR and CHAR data, as it provides a good balance of compression ratio and performance. ZSTD is commonly recommended for columnar storage in data warehouses, especially for string data, due to its effectiveness in reducing storage costs without significant performance degradation.
+
 Reasons the other options are less suitable:
 
 A. LZ0 Encoding: This is an older compression method with less efficient compression compared to ZSTD, and it's not typically recommended for variable-length text columns.
