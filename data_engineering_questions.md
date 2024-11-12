@@ -118,3 +118,20 @@ C. Delta Encoding: Delta encoding works well with sequential numeric data but is
 D. Byte-Dictionary Encoding: While useful for columns with many repeating values, it’s not as effective as ZSTD for general-purpose text data in VARCHAR and CHAR columns.
 
 Therefore, Zstandard (ZSTD) Encoding is the most appropriate choice here.
+
+
+# Topic: AWs Kinesis
+
+## question:
+
+To which of the following destination, Amazon Kinesis Data Firehose is a fully managed servicefor delivering real-time streaming data?
+
+(Select all that apply)
+
+A. Amazon Elastic Compute Cloud (Amazon EC2)
+
+B. Amazon Elastic Container Service (Amazon ECS)
+
+C. Amazon Simple Storage Service (Amazon S3)
+
+D. Splunk
