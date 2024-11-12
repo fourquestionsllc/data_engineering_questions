@@ -305,3 +305,27 @@ B. Deploy the application on the EKS: Amazon EKS (Elastic Kubernetes Service) ca
 D. Deploy the application on the EC2 Instance: This option involves managing EC2 instances yourself, which requires infrastructure management, making it not a serverless option.
 
 Conclusion: To achieve serverless infrastructure with minimal management, AWS Fargate in ECS is the optimal choice.
+
+
+# Topic: Terraform
+
+## question:
+
+Complete the following code snippet to use variable validation to restrict the possible values for theproject and environment tags.
+(There are multiple drop-downs below, Select a correct response for each drop-down)
+
+```
+variable "resource tags" {
+  description ="Tags to set for all resources"
+  type= map(string)
+  default= {
+    project="dev-project",
+    environment ="dev"
+  }
+  
+  ?? {
+    ?? = length(regexall("/[^a-zA-Z0-9-]/",var.resource tags["project"]))== 0
+    ?? = "Project tag must only contain letters, numbers, and hyphens."
+  }
+}
+```
