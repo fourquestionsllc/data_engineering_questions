@@ -1,3 +1,130 @@
+Here's an **end-to-end example** of building a **data engineering pipeline** in **Palantir Foundry**. This example demonstrates how to ingest raw data, transform it, and prepare it for analysis while leveraging Foundry’s tools like **Code Workbook**, **Transforms**, and **Pipelines**.
+
+---
+
+### **Use Case: Building a Sales Data Pipeline**
+
+#### **1. Data Ingestion**
+
+**Action**: Import raw CSV files containing sales data into Foundry.
+
+**Steps**:
+1. Navigate to the **Foundry Files** workspace.
+2. Upload `sales_data.csv` (example file with columns: `OrderDate`, `Product`, `Category`, `SalesAmount`, `CostAmount`).
+3. Register the file in Foundry's data catalog.
+
+---
+
+#### **2. Data Transformation (Python Transform)**
+
+**Goal**: Clean the data and calculate new fields (e.g., Profit).
+
+1. **Create a new Code Workbook** in Foundry.
+2. Add a **Transform** block and write Python code.
+
+**Python Code Example**:
+```python
+from transforms.api import transform, Input, Output
+
+@transform(
+    output=Output("/foundry/data/cleaned_sales_data"),
+    input=Input("/foundry/data/raw_sales_data"),
+)
+def clean_sales_data(input, output):
+    import pandas as pd
+
+    # Load data
+    df = input.dataframe()
+
+    # Data cleaning
+    df['OrderDate'] = pd.to_datetime(df['OrderDate'])
+    df['Profit'] = df['SalesAmount'] - df['CostAmount']
+
+    # Filter out negative sales amounts
+    df = df[df['SalesAmount'] > 0]
+
+    # Save cleaned data
+    output.write_dataframe(df)
+```
+
+---
+
+#### **3. Aggregation and Analysis**
+
+**Goal**: Aggregate sales data by category and calculate total sales, average profit, and profit margin.
+
+1. Add another Transform block for aggregation.
+
+**Python Code Example**:
+```python
+@transform(
+    output=Output("/foundry/data/aggregated_sales_data"),
+    input=Input("/foundry/data/cleaned_sales_data"),
+)
+def aggregate_sales_data(input, output):
+    import pandas as pd
+
+    # Load cleaned data
+    df = input.dataframe()
+
+    # Aggregation
+    summary = df.groupby('Category').agg(
+        TotalSales=pd.NamedAgg(column='SalesAmount', aggfunc='sum'),
+        AverageProfit=pd.NamedAgg(column='Profit', aggfunc='mean'),
+        ProfitMargin=pd.NamedAgg(column='Profit', aggfunc=lambda x: x.sum() / df['SalesAmount'].sum())
+    ).reset_index()
+
+    # Save aggregated data
+    output.write_dataframe(summary)
+```
+
+---
+
+#### **4. Automation with Pipelines**
+
+**Goal**: Automate the transformations into a repeatable pipeline.
+
+1. **Create a pipeline** in Foundry.
+2. Add the following steps:
+   - Data Ingestion (raw CSV).
+   - Data Cleaning Transform (`clean_sales_data`).
+   - Aggregation Transform (`aggregate_sales_data`).
+3. Schedule the pipeline to run daily.
+
+---
+
+#### **5. Visualization**
+
+**Goal**: Use Palantir's integrated dashboards to visualize the aggregated data.
+
+1. Create a **Workbook**.
+2. Connect to the `/foundry/data/aggregated_sales_data` dataset.
+3. Add visualizations:
+   - Bar chart: Total sales by category.
+   - Line chart: Profit margin over time.
+
+---
+
+### **How These Components Are Connected**
+
+- **Raw Data**: Uploaded as a file and cataloged.
+- **Transforms**: Process raw data using Python for cleaning and aggregation.
+- **Pipeline**: Automates the sequence of data preparation steps.
+- **Dataset**: Output from the pipeline is ready for analytics and visualization.
+- **Visualization**: Insights presented in a dashboard.
+
+---
+
+### **Outcome**
+
+You now have a fully automated pipeline in Foundry that:
+- Cleanses raw sales data.
+- Computes advanced metrics like profit margin.
+- Prepares data for visualization and analysis.
+
+This approach showcases the modularity and scalability of Palantir Foundry for data engineering tasks.
+
+
 Here’s an example of the content of `sales_data.csv`, which we use as input to the Palantir Foundry pipeline:
 
 ### **sales_data.csv**
