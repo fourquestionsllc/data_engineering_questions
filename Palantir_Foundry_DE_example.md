@@ -13,6 +13,26 @@ Here's an **end-to-end example** of building a **data engineering pipeline** in 
 2. Upload `sales_data.csv` (example file with columns: `OrderDate`, `Product`, `Category`, `SalesAmount`, `CostAmount`).
 3. Register the file in Foundry's data catalog.
 
+Here’s an example of the content of `sales_data.csv`, which we use as input to the Palantir Foundry pipeline:
+
+### **sales_data.csv**
+```csv
+OrderDate,Product,Category,SalesAmount,CostAmount
+2024-01-01,Widget A,Category 1,100,60
+2024-01-01,Widget B,Category 2,200,120
+2024-01-02,Widget C,Category 1,150,90
+2024-01-02,Widget D,Category 3,300,250
+2024-01-03,Widget E,Category 2,-50,40
+```
+
+### **Explanation of Fields**
+- `OrderDate`: The date when the sale occurred.
+- `Product`: Name of the product sold.
+- `Category`: The category of the product.
+- `SalesAmount`: The total amount for the sale (may include negative values for returns).
+- `CostAmount`: The cost associated with the sale.
+
+
 ---
 
 #### **2. Data Transformation (Python Transform)**
@@ -125,24 +145,6 @@ You now have a fully automated pipeline in Foundry that:
 This approach showcases the modularity and scalability of Palantir Foundry for data engineering tasks.
 
 
-Here’s an example of the content of `sales_data.csv`, which we use as input to the Palantir Foundry pipeline:
-
-### **sales_data.csv**
-```csv
-OrderDate,Product,Category,SalesAmount,CostAmount
-2024-01-01,Widget A,Category 1,100,60
-2024-01-01,Widget B,Category 2,200,120
-2024-01-02,Widget C,Category 1,150,90
-2024-01-02,Widget D,Category 3,300,250
-2024-01-03,Widget E,Category 2,-50,40
-```
-
-### **Explanation of Fields**
-- `OrderDate`: The date when the sale occurred.
-- `Product`: Name of the product sold.
-- `Category`: The category of the product.
-- `SalesAmount`: The total amount for the sale (may include negative values for returns).
-- `CostAmount`: The cost associated with the sale.
 
 ---
 
