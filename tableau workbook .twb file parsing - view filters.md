@@ -1,51 +1,78 @@
-A `.twb` file in Tableau is an XML file that stores the workbook structure, including views, filters, data sources, and formatting. You can extract the view's filters using Python by parsing the XML structure.
+To extract the available values of filters in the drop-down list, you need to locate the relevant filter definitions inside the `.twb` XML file. Tableau stores filter values within elements like `<filter>` or `<member>` inside `<filters>`.
 
-### Steps to Extract Filters:
-1. **Read the `.twb` file as an XML document.**
-2. **Find the `worksheet` elements** that define different views.
-3. **Locate filter elements** (e.g., `<filter>` or `<calculation>` inside worksheets).
-4. **Extract relevant attributes** such as field name, filter type, and values.
+### **Updated Python Code:**
+This version extracts:
+1. **Filter names**
+2. **Filter types**
+3. **Available values in drop-down lists**
 
-### Python Code:
 ```python
 import xml.etree.ElementTree as ET
 
-def extract_filters_from_twb(file_path):
+def extract_filters_with_values(file_path):
     tree = ET.parse(file_path)  # Load the XML tree
     root = tree.getroot()
-    
-    namespaces = {'tab': 'http://www.tableausoftware.com/xml/workbook'}  # Define namespace if needed
-    
+
     filters_data = []
-    
+
+    # Loop through all worksheets
     for worksheet in root.findall(".//worksheet"):
         sheet_name = worksheet.get("name")  # Get worksheet name
-        filters = worksheet.findall(".//filter")
         
-        for filter_elem in filters:
-            field = filter_elem.get("column")  # Get the field being filtered
-            filter_type = filter_elem.get("filter-type")  # Type of filter (e.g., categorical, range)
-            filters_data.append({"worksheet": sheet_name, "field": field, "type": filter_type})
+        # Find filters within the worksheet
+        for filter_elem in worksheet.findall(".//filter"):
+            field = filter_elem.get("column")  # Column being filtered
+            filter_type = filter_elem.get("filter-type")  # Filter type (categorical, range, etc.)
+            
+            # Extract available values in drop-down (if categorical)
+            values = []
+            for member in filter_elem.findall(".//member"):
+                values.append(member.get("value"))  # Extract available values
+
+            filters_data.append({
+                "worksheet": sheet_name,
+                "field": field,
+                "type": filter_type,
+                "values": values
+            })
 
     return filters_data
 
 # Example usage:
 file_path = "your_workbook.twb"
-filters = extract_filters_from_twb(file_path)
+filters = extract_filters_with_values(file_path)
 
-# Print extracted filters
+# Print extracted filters with available values
 for f in filters:
     print(f)
 ```
 
-### Explanation:
-- **Parses the XML structure** of the `.twb` file.
-- **Finds all worksheet elements** to extract filters from each view.
-- **Retrieves filter information**, such as the column (field) and filter type.
-- **Prints extracted filters** for analysis.
+### **Explanation of Enhancements:**
+- **Finds all worksheets** and extracts filter information.
+- **Extracts available values from `<member>` elements**, which store selectable values in drop-down filters.
+- **Handles categorical filters** by capturing their values.
 
-#### Next Steps:
-- If your `.twb` contains **calculated filters**, you might need to search for `<calculation>` or `<datasource-filter>`.
-- If Tableau's XML uses a **namespace**, adjust `namespaces` in `findall()`.
-- To extract filter values, look for **child elements** inside `<filter>`.
-Would you like help refining this for specific filter types (e.g., date, categorical, range)? 🚀
+### **Example Output:**
+```python
+[
+    {
+        "worksheet": "Sales Dashboard",
+        "field": "Region",
+        "type": "categorical",
+        "values": ["East", "West", "North", "South"]
+    },
+    {
+        "worksheet": "Product Performance",
+        "field": "Category",
+        "type": "categorical",
+        "values": ["Beverages", "Snacks", "Dairy"]
+    }
+]
+```
+
+### **Next Steps:**
+- If you need numeric or range filters, extract min/max values.
+- If the `.twb` uses a namespace, modify `findall()` accordingly.
+- If you need hierarchical filters, check for parent-child relationships in filters.
+
+Would you like additional refinements for specific filter types? 🚀
