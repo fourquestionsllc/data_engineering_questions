@@ -1,15 +1,16 @@
-You're right! `tableauserverclient` does **not** have a `TableauType` attribute. The correct way to define a Hyper table is to manually map `pandas` column types to `tableauhyperapi.SqlType`. Below is the corrected version of your script.  
+You're right again! The issue occurs because the `TableDefinition` constructor expects `TableName` and `SqlType` tuples inside a **list**, but the previous code mistakenly passed a list of tuples directly. Here’s the **corrected version** that ensures proper type mapping and `TableDefinition` structure.  
 
 ---
 
-### **1. Install Dependencies**
+### **1. Install Required Libraries**
+Ensure you have the required libraries installed:
 ```bash
 pip install tableauserverclient pandas requests tableauhyperapi
 ```
 
 ---
 
-### **2. Corrected Python Code**
+### **2. Corrected Code**
 
 #### **Step 1: Authenticate with Tableau Server**
 ```python
@@ -56,22 +57,23 @@ def map_pandas_dtype_to_sqltype(dtype):
     else:
         return SqlType.text()
 
-# Define Hyper Table Schema
+# Define Hyper Table Schema (Fixing Structure Issue)
 table_definition = TableDefinition(
-    TableName("Extract"),
-    [
-        (col, map_pandas_dtype_to_sqltype(df[col].dtype)) for col in df.columns
-    ],
+    TableName("Extract")  # Table Name
 )
+
+# Add Columns to TableDefinition
+for col in df.columns:
+    table_definition.add_column(col, map_pandas_dtype_to_sqltype(df[col].dtype))
 
 # Create Hyper File
 with HyperProcess(telemetry=Telemetry.SEND_USAGE_DATA_TO_TABLEAU) as hyper:
-    with Connection(endpoint=hyper.endpoint, database=hyper_file, create_mode="create_and_replace") as connection:
+    with Connection(endpoint=hyper.endpoint, database=hyper_file, create_mode=Connection.CREATE_AND_REPLACE) as connection:
         connection.catalog.create_table(table_definition)
 
         # Insert Data
         with Inserter(connection, table_definition) as inserter:
-            inserter.add_rows(df.values.tolist())
+            inserter.add_rows(df.itertuples(index=False, name=None))  # Fix Data Insertion Format
             inserter.execute()
 
 print(f"Hyper file '{hyper_file}' created successfully!")
@@ -103,7 +105,6 @@ with server.auth.sign_in(auth):
 ---
 
 ### **3. Summary of Fixes**
-✅ **Fixed the `TableauType` issue** by using `tableauhyperapi.SqlType` instead.  
-✅ **Added a function to map Pandas data types to Tableau Hyper types** dynamically.  
-✅ **Ensured correct column type handling** for integers, floats, booleans, timestamps, and text.  
-
+✅ **Fixed the incorrect `TableDefinition` structure** by explicitly calling `.add_column()` for each column.  
+✅ **Replaced incorrect `create_mode="create_and_replace"`** with `Connection.CREATE_AND_REPLACE`.  
+✅ **Fixed data insertion issue** by using `df.itertuples(index=False, name=None)`, which ensures correct row format.  
