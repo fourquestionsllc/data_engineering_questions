@@ -1,20 +1,17 @@
-To create a Tableau data source from a CSV file using the **REST API and Python**, follow these steps:
+You're right! `tableauserverclient` does **not** have a `TableauType` attribute. The correct way to define a Hyper table is to manually map `pandas` column types to `tableauhyperapi.SqlType`. Below is the corrected version of your script.  
 
-### **1. Prerequisites**
-- **Tableau Server or Tableau Cloud** (Ensure you have access).
-- **Personal Access Token (PAT)** or **Username & Password** with the required permissions.
-- **Python libraries:** `tableauserverclient`, `requests`, `pandas`, etc.
+---
 
-### **2. Steps to Upload CSV as a Tableau Data Source**
-
-#### **Step 1: Install Required Libraries**
+### **1. Install Dependencies**
 ```bash
-pip install tableauserverclient pandas requests
+pip install tableauserverclient pandas requests tableauhyperapi
 ```
 
-#### **Step 2: Authenticate with Tableau Server**
-Use Tableau Server REST API or Tableau Server Client (`TSC`).
+---
 
+### **2. Corrected Python Code**
+
+#### **Step 1: Authenticate with Tableau Server**
 ```python
 import tableauserverclient as TSC
 
@@ -34,9 +31,7 @@ with server.auth.sign_in(auth):
 
 ---
 
-#### **Step 3: Convert CSV to Hyper File (Required Format)**
-Tableau requires the data source to be in **.hyper** format.
-
+#### **Step 2: Convert CSV to Hyper File**
 ```python
 from tableauhyperapi import HyperProcess, Connection, Telemetry, TableDefinition, SqlType, Inserter, TableName
 import pandas as pd
@@ -48,12 +43,24 @@ df = pd.read_csv(csv_file)
 # Define Hyper File Path
 hyper_file = "data.hyper"
 
+# Map Pandas dtypes to Tableau Hyper SQL Types
+def map_pandas_dtype_to_sqltype(dtype):
+    if pd.api.types.is_integer_dtype(dtype):
+        return SqlType.big_int()
+    elif pd.api.types.is_float_dtype(dtype):
+        return SqlType.double()
+    elif pd.api.types.is_bool_dtype(dtype):
+        return SqlType.bool()
+    elif pd.api.types.is_datetime64_any_dtype(dtype):
+        return SqlType.timestamp()
+    else:
+        return SqlType.text()
+
 # Define Hyper Table Schema
 table_definition = TableDefinition(
     TableName("Extract"),
     [
-        TSC.TableauType.to_hyper_column(column_name, SqlType.text())  # Change type accordingly
-        for column_name in df.columns
+        (col, map_pandas_dtype_to_sqltype(df[col].dtype)) for col in df.columns
     ],
 )
 
@@ -72,7 +79,7 @@ print(f"Hyper file '{hyper_file}' created successfully!")
 
 ---
 
-#### **Step 4: Publish Hyper File to Tableau Server**
+#### **Step 3: Publish Hyper File to Tableau Server**
 ```python
 # Define project name in Tableau
 PROJECT_NAME = "Your Project Name"
@@ -95,7 +102,8 @@ with server.auth.sign_in(auth):
 
 ---
 
-### **3. Summary of Workflow**
-1. **Authenticate with Tableau Server** using PAT or credentials.
-2. **Convert CSV to Tableau's Hyper format** using `tableauhyperapi`.
-3. **Publish the Hyper file to Tableau Server** using `tableauserverclient`.
+### **3. Summary of Fixes**
+✅ **Fixed the `TableauType` issue** by using `tableauhyperapi.SqlType` instead.  
+✅ **Added a function to map Pandas data types to Tableau Hyper types** dynamically.  
+✅ **Ensured correct column type handling** for integers, floats, booleans, timestamps, and text.  
+
