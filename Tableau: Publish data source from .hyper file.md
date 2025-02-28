@@ -3,6 +3,7 @@ Here's a Python script that uploads a `.hyper` file to Tableau Server using the 
 ```python
 import requests
 import xml.etree.ElementTree as ET
+from requests_toolbelt.multipart.encoder import MultipartEncoder
 
 # Configuration
 TABLEAU_SERVER = "YOUR_TABLEAU_SERVER"
@@ -37,13 +38,7 @@ def authenticate():
 def publish_datasource(auth_token):
     url = f"{TABLEAU_SERVER}/api/{API_VERSION}/sites/{SITE_ID}/datasources?overwrite=true"
     
-    boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW"
-    headers = {
-        "X-Tableau-Auth": auth_token,
-        "Content-Type": f"multipart/mixed; boundary={boundary}"
-    }
-    
-    xml_payload = f'''--{boundary}\nContent-Disposition: form-data; name="request_payload"\nContent-Type: text/xml\n\n<?xml version="1.0" encoding="UTF-8"?>
+    xml_payload = f'''<?xml version="1.0" encoding="UTF-8"?>
     <tsRequest>
         <datasource name="{DATASOURCE_NAME}">
             <project id="{PROJECT_ID}" />
@@ -54,9 +49,19 @@ def publish_datasource(auth_token):
     with open(HYPER_FILE_PATH, "rb") as file:
         file_content = file.read()
     
-    data_payload = f"\n--{boundary}\nContent-Disposition: form-data; name=\"tableau_datasource\"; filename=\"{HYPER_FILE_PATH.split('/')[-1]}\"\nContent-Type: application/octet-stream\n\n".encode() + file_content + f"\n--{boundary}--\n".encode()
+    encoder = MultipartEncoder(
+        fields={
+            "request_payload": (None, xml_payload, "text/xml"),
+            "tableau_datasource": (HYPER_FILE_PATH.split("/")[-1], file_content, "application/octet-stream")
+        }
+    )
     
-    response = requests.post(url, headers=headers, data=xml_payload.encode() + data_payload)
+    headers = {
+        "X-Tableau-Auth": auth_token,
+        "Content-Type": encoder.content_type
+    }
+    
+    response = requests.post(url, headers=headers, data=encoder)
     response.raise_for_status()
     
     print("Datasource uploaded successfully:", response.text)
