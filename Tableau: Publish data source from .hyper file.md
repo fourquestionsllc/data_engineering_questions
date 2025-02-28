@@ -5,83 +5,77 @@ import requests
 import xml.etree.ElementTree as ET
 
 # Configuration
-TABLEAU_SERVER = "YOUR_TABLEAU_SERVER"
-API_VERSION = "3.24"  # Update as needed
-SITE_ID = "YOUR_SITE_LUID"
-USERNAME = "YOUR_USERNAME"
-PASSWORD = "YOUR_PASSWORD"
-PROJECT_ID = "YOUR_PROJECT_LUID"
-DATASOURCE_NAME = "YourDataSourceName"
-HYPER_FILE_PATH = "path/to/your/file.hyper"
+TABLEAU_SERVER = "https://your-tableau-server"  # Replace with your Tableau Server URL
+API_VERSION = "3.24"  # Replace with the correct API version
+USERNAME = "your-username"
+PASSWORD = "your-password"
+SITE_ID = "your-site-id"  # Replace with your site ID or "" for the default site
+PROJECT_ID = "your-project-id"  # Replace with your project ID
+DATA_SOURCE_NAME = "your-datasource-name"
+FILE_PATH = "your-file.hyper"  # Path to the .hyper file
 
-# Authenticate and get token
-def authenticate():
+# Authenticate and get a token
+def get_auth_token():
     url = f"{TABLEAU_SERVER}/api/{API_VERSION}/auth/signin"
-    headers = {"Content-Type": "application/xml"}
-    
-    payload = f'''<?xml version="1.0" encoding="UTF-8"?>
-    <tsRequest>
-        <credentials name="{USERNAME}" password="{PASSWORD}">
-            <site id="{SITE_ID}" />
-        </credentials>
-    </tsRequest>
-    '''.strip()
-    
-    response = requests.post(url, headers=headers, data=payload)
+    payload = {
+        "credentials": {
+            "name": USERNAME,
+            "password": PASSWORD,
+            "site": {"contentUrl": SITE_ID}
+        }
+    }
+    headers = {"Content-Type": "application/json"}
+    response = requests.post(url, json=payload, headers=headers)
     response.raise_for_status()
     
-    root = ET.fromstring(response.text)
-    return root.find(".//t:token", namespaces={"t": "http://tableau.com/api"}).text
-
-# Publish the .hyper file
-def publish_datasource(auth_token):
-    url = f"{TABLEAU_SERVER}/api/{API_VERSION}/sites/{SITE_ID}/datasources?overwrite=true"
+    xml_response = ET.fromstring(response.text)
+    token = xml_response.find(".//t:credentials", namespaces={'t': 'http://tableau.com/api'}).get("token")
+    site_id = xml_response.find(".//t:site", namespaces={'t': 'http://tableau.com/api'}).get("id")
     
+    return token, site_id
+
+# Publish data source
+def publish_datasource(token, site_id):
+    url = f"{TABLEAU_SERVER}/api/{API_VERSION}/sites/{site_id}/datasources?overwrite=true"
     boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW"
     headers = {
-        "X-Tableau-Auth": auth_token,
+        "X-Tableau-Auth": token,
         "Content-Type": f"multipart/mixed; boundary={boundary}"
     }
     
-    xml_payload = f'''
-    --{boundary}
-    Content-Disposition: name="request_payload"
-    Content-Type: text/xml
+    # XML request payload
+    request_payload = f"""
+--{boundary}
+Content-Disposition: name="request_payload"
+Content-Type: text/xml
+
+<tsRequest>
+    <datasource name="{DATA_SOURCE_NAME}">
+        <project id="{PROJECT_ID}" />
+    </datasource>
+</tsRequest>
+"""
     
-    <tsRequest>
-        <datasource name="{DATASOURCE_NAME}">
-            <project id="{PROJECT_ID}" />
-        </datasource>
-    </tsRequest>
-    '''.strip()
-    
-    with open(HYPER_FILE_PATH, "rb") as file:
+    # Read the file
+    with open(FILE_PATH, "rb") as file:
         file_content = file.read()
     
-    data_payload = f'''
-    --{boundary}
-    Content-Disposition: name="tableau_datasource"; filename="{HYPER_FILE_PATH.split('/')[-1]}"
-    Content-Type: application/octet-stream
-    
-    '''.encode() + file_content + f"\n--{boundary}--\n".encode()
-    
-    full_payload = xml_payload.encode() + b"\n" + data_payload
-    
-    response = requests.post(url, headers=headers, data=full_payload)
-    response.raise_for_status()
-    
-    print("Datasource uploaded successfully:", response.text)
+    file_part = f"""
+--{boundary}
+Content-Disposition: name="tableau_datasource"; filename="{FILE_PATH}"
+Content-Type: application/octet-stream
 
-# Execute script
-def main():
-    try:
-        auth_token = authenticate()
-        publish_datasource(auth_token)
-    except requests.exceptions.RequestException as e:
-        print("Error:", e)
+""".encode() + file_content + f"\n--{boundary}--\n".encode()
+    
+    body = request_payload.encode() + file_part
+    
+    response = requests.post(url, headers=headers, data=body)
+    response.raise_for_status()
+    print("Datasource published successfully!")
 
 if __name__ == "__main__":
-    main()
+    token, site_id = get_auth_token()
+    publish_datasource(token, site_id)
 ```
 
 This script:
