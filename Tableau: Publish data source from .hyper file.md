@@ -1,3 +1,6 @@
+Here is the equivalent Python code using the `requests` library:  
+
+```python
 import requests
 
 # Define your server details
@@ -26,3 +29,12 @@ response = requests.post(url, headers=headers, files=files)
 # Print the response
 print(response.status_code)
 print(response.text)
+```
+
+### **Explanation:**
+- Uses `requests.post()` to send a multipart form-data request.
+- `request_payload` (the XML file) is sent with `"text/xml"` MIME type.
+- `tableau_datasource` (the `.tds` file) is sent with `"application/octet-stream"` MIME type.
+- Authentication is passed via the `X-Tableau-Auth` header.
+
+Make sure `publish-datasource.xml` and `data-source.tds` exist in the script's directory before running.
