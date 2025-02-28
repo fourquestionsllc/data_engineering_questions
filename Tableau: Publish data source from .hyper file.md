@@ -19,13 +19,13 @@ def authenticate():
     url = f"{TABLEAU_SERVER}/api/{API_VERSION}/auth/signin"
     headers = {"Content-Type": "application/xml"}
     
-    payload = f'''
+    payload = f'''<?xml version="1.0" encoding="UTF-8"?>
     <tsRequest>
-        <credentials name="{USERNAME}" password="{PASSWORD}" >
+        <credentials name="{USERNAME}" password="{PASSWORD}">
             <site id="{SITE_ID}" />
         </credentials>
     </tsRequest>
-    '''
+    '''.strip()
     
     response = requests.post(url, headers=headers, data=payload)
     response.raise_for_status()
@@ -43,26 +43,18 @@ def publish_datasource(auth_token):
         "Content-Type": f"multipart/mixed; boundary={boundary}"
     }
     
-    xml_payload = f'''
-    --{boundary}
-    Content-Disposition: name="request_payload"
-    Content-Type: text/xml
-
+    xml_payload = f'''--{boundary}\nContent-Disposition: form-data; name="request_payload"\nContent-Type: text/xml\n\n<?xml version="1.0" encoding="UTF-8"?>
     <tsRequest>
         <datasource name="{DATASOURCE_NAME}">
             <project id="{PROJECT_ID}" />
         </datasource>
     </tsRequest>
-    '''
+    '''.strip()
     
     with open(HYPER_FILE_PATH, "rb") as file:
         file_content = file.read()
     
-    data_payload = f'''
-    --{boundary}
-    Content-Disposition: name="tableau_datasource"; filename="{HYPER_FILE_PATH.split('/')[-1]}"
-    Content-Type: application/octet-stream
-    '''.encode() + file_content + f"\n--{boundary}--\n".encode()
+    data_payload = f"\n--{boundary}\nContent-Disposition: form-data; name=\"tableau_datasource\"; filename=\"{HYPER_FILE_PATH.split('/')[-1]}\"\nContent-Type: application/octet-stream\n\n".encode() + file_content + f"\n--{boundary}--\n".encode()
     
     response = requests.post(url, headers=headers, data=xml_payload.encode() + data_payload)
     response.raise_for_status()
