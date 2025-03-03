@@ -1,4 +1,4 @@
-### **SQL Interview Question (Hard Level)**  
+### **SQL Interview Question**  
 
 You have a sales table with the following schema:  
 
