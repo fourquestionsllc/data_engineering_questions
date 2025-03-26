@@ -26,3 +26,53 @@ This ensures reproducibility — so that anyone installing your project gets the
 ### TL;DR:
 - ✅ `pyproject.toml` — you write this (defines constraints).
 - 🔄 `poetry.lock` — Poetry writes this (resolves exact versions).
+
+
+This error occurs because the `pkginfo` package does not yet support metadata version 2.4, leading to a warning and potential issues with dependency resolution.
+
+### **Possible Fixes:**
+
+#### **1. Upgrade `pkginfo`**
+Try updating the `pkginfo` package to the latest version:
+```bash
+pip install --upgrade pkginfo
+```
+Then retry:
+```bash
+poetry update
+```
+
+#### **2. Upgrade Poetry**
+Ensure you are using the latest version of Poetry:
+```bash
+pipx upgrade poetry
+```
+or if installed via pip:
+```bash
+pip install --upgrade poetry
+```
+
+#### **3. Downgrade `pkginfo` to a Stable Version**
+If upgrading `pkginfo` does not work, you can downgrade to a stable version that does not have metadata version conflicts:
+```bash
+pip install 'pkginfo<2.4'
+```
+
+#### **4. Use an Older Metadata Format**
+If the issue persists, explicitly set an older metadata version in your `pyproject.toml`:
+```toml
+[tool.poetry]
+package-mode = "legacy"
+```
+Then run:
+```bash
+poetry update
+```
+
+#### **5. Reinstall Poetry**
+If nothing works, try uninstalling and reinstalling Poetry:
+```bash
+pipx uninstall poetry
+pipx install poetry
+```
+Then rerun `poetry update`.
