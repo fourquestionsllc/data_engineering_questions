@@ -1,4 +1,4 @@
-Ttrying to create robust SQL templates that can map natural language questions about Tableau metadata (workbooks, views, data sources, and view keywords) into executable SQL queries.
+# Trying to create robust SQL templates that can map natural language questions about Tableau metadata (workbooks, views, data sources, and view keywords) into executable SQL queries.
 
 I'll outline some common categories of questions and provide SQL templates for each, along with:
 
@@ -376,3 +376,176 @@ SELECT view_name FROM views WHERE workbook_name = 'Marketing Insights';
 
 
 
+# fuzzy matching adds robustness when user questions contain slight variations or when the LLM misinterprets a placeholder.
+
+We’ll enhance the pipeline to:
+
+1. Fuzzy-match extracted placeholder values (like workbook names or data sources) against known metadata.
+2. Replace the LLM’s placeholder values with the closest match.
+
+---
+
+### ✅ Updated Steps:
+
+- Use `fuzzywuzzy` (or `rapidfuzz` — more performant) to do the fuzzy matching.
+- Assume you have access to lists of known:
+  - Workbook names
+  - View names
+  - Data source names
+  - Keywords
+
+---
+
+### 📦 Install Dependencies
+
+```bash
+pip install rapidfuzz
+```
+
+---
+
+### 🧠 Updated Python Code (with fuzzy matching)
+
+```python
+import openai
+from rapidfuzz import process
+
+# Set your OpenAI API key
+openai.api_key = "your-api-key"
+
+# Sample metadata (replace with your real data)
+METADATA = {
+    "workbook_name": [
+        "Marketing Insights", "Sales Dashboard", "Executive Summary"
+    ],
+    "view_name": [
+        "Monthly Revenue", "Profit Trends", "Churn Analysis"
+    ],
+    "data_source_name": [
+        "Sales DB", "Customer Orders", "Finance Data"
+    ],
+    "keyword": [
+        "revenue", "Q4", "churn"
+    ]
+}
+
+# SQL Templates
+SQL_TEMPLATES = {
+    "T1": {
+        "sql": "SELECT view_name FROM views WHERE workbook_name = '{workbook_name}';"
+    },
+    "T2": {
+        "sql": "SELECT DISTINCT workbook_name FROM workbooks WHERE data_source_name = '{data_source_name}';"
+    },
+    "T3": {
+        "sql": """
+            SELECT v.view_name
+            FROM views v
+            JOIN view_keywords vk ON v.view_id = vk.view_id
+            WHERE vk.keyword = '{keyword}';
+        """
+    },
+    "T4": {
+        "sql": """
+            SELECT keyword
+            FROM view_keywords
+            WHERE view_id = (
+                SELECT view_id FROM views WHERE view_name = '{view_name}'
+            );
+        """
+    },
+    "T5": {
+        "sql": "SELECT view_name FROM views WHERE data_source_name = '{data_source_name}';"
+    },
+    "T6": {
+        "sql": "SELECT workbook_name FROM workbooks;"
+    }
+}
+
+# LLM prompt
+def build_prompt(user_question):
+    return f"""
+You are an AI assistant that maps natural language questions to SQL templates.
+
+Available SQL templates:
+T1 - List views in a specific workbook
+T2 - List workbooks that use a specific data source
+T3 - Get views by a specific keyword
+T4 - Get keywords associated with a specific view
+T5 - Find views using a specific data source
+T6 - List all workbooks
+
+Given a user question, do the following:
+1. Select the best matching template ID from the list (e.g., T1, T2, etc.)
+2. Extract values for any placeholders needed by that template.
+
+Respond in the following JSON format:
+
+{{
+  "template_id": "<template_id>",
+  "placeholders": {{
+    "<placeholder1>": "<value>"
+  }}
+}}
+
+Now process the following question:
+"{user_question}"
+"""
+
+# Fuzzy match function
+def fuzzy_match(value, field_type):
+    choices = METADATA.get(field_type, [])
+    match, score, _ = process.extractOne(value, choices, score_cutoff=70)
+    return match if match else value
+
+# LLM + Fuzzy Matching Pipeline
+def classify_and_fill(user_question):
+    import json
+
+    # Step 1: Use LLM to classify and extract
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "user", "content": build_prompt(user_question)}
+        ]
+    )
+    result = json.loads(response['choices'][0]['message']['content'])
+
+    template_id = result["template_id"]
+    placeholders = result.get("placeholders", {})
+
+    # Step 2: Fuzzy match placeholder values
+    fuzzy_placeholders = {}
+    for key, val in placeholders.items():
+        fuzzy_val = fuzzy_match(val, key)
+        fuzzy_placeholders[key] = fuzzy_val
+
+    # Step 3: Fill the SQL template
+    template_sql = SQL_TEMPLATES[template_id]["sql"]
+    for key, value in fuzzy_placeholders.items():
+        template_sql = template_sql.replace(f"{{{key}}}", value)
+
+    return template_sql.strip()
+
+# Example usage
+if __name__ == "__main__":
+    user_input = "What views are in the marketing insight workbook?"
+    sql = classify_and_fill(user_input)
+    print("Generated SQL:")
+    print(sql)
+```
+
+---
+
+### ✅ Sample Output
+
+**Input:**  
+`What views are in the marketing insight workbook?`
+
+**Fuzzy matched:**  
+`"marketing insight"` → `"Marketing Insights"`
+
+**Output SQL:**
+```sql
+SELECT view_name FROM views WHERE workbook_name = 'Marketing Insights';
+```
