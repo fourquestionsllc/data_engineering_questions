@@ -119,3 +119,123 @@ FROM workbooks;
 - *(None)*
 
 ---
+
+
+
+Perfect — we’ll use a **prompt-based classifier** using an LLM to choose the best SQL template for a given user question. The idea is to feed the LLM:
+
+- The list of templates (with IDs and descriptions)
+- The user’s question
+- A request to pick the most suitable template ID and extract the values for placeholders
+
+---
+
+## 🔧 Setup: Template Catalog
+
+Here's a structured version of the SQL templates we defined:
+
+```json
+[
+  {
+    "id": "T1",
+    "description": "List views in a specific workbook",
+    "placeholders": ["workbook_name"]
+  },
+  {
+    "id": "T2",
+    "description": "List workbooks that use a specific data source",
+    "placeholders": ["data_source_name"]
+  },
+  {
+    "id": "T3",
+    "description": "Get views by a specific keyword",
+    "placeholders": ["keyword"]
+  },
+  {
+    "id": "T4",
+    "description": "Get keywords associated with a specific view",
+    "placeholders": ["view_name"]
+  },
+  {
+    "id": "T5",
+    "description": "Find views using a specific data source",
+    "placeholders": ["data_source_name"]
+  },
+  {
+    "id": "T6",
+    "description": "List all workbooks",
+    "placeholders": []
+  }
+]
+```
+
+---
+
+## 🧠 Prompt Template for Classification
+
+Here’s a prompt you can use with an LLM (e.g., via LangChain or OpenAI directly):
+
+```text
+You are an AI assistant that maps natural language questions to SQL templates.
+
+Available SQL templates:
+T1 - List views in a specific workbook
+T2 - List workbooks that use a specific data source
+T3 - Get views by a specific keyword
+T4 - Get keywords associated with a specific view
+T5 - Find views using a specific data source
+T6 - List all workbooks
+
+Given a user question, do the following:
+1. Select the best matching template ID from the list (e.g., T1, T2, etc.)
+2. Extract values for any placeholders needed by that template.
+
+Respond in the following JSON format:
+
+{
+  "template_id": "<template_id>",
+  "placeholders": {
+    "<placeholder1>": "<value>",
+    ...
+  }
+}
+
+Example:
+
+User Question: "Which workbooks use the Sales DB data source?"
+
+Output:
+{
+  "template_id": "T2",
+  "placeholders": {
+    "data_source_name": "Sales DB"
+  }
+}
+
+Now process the following question:
+"{user_question}"
+```
+
+Replace `{user_question}` with the actual user input.
+
+---
+
+## ✅ Example Output
+
+For the input:  
+**"Show me all views from the Marketing Insights workbook."**
+
+The LLM should return:
+
+```json
+{
+  "template_id": "T1",
+  "placeholders": {
+    "workbook_name": "Marketing Insights"
+  }
+}
+```
+
+---
+
+Would you like me to help you implement this using LangChain or Semantic Kernel? Or are you planning to use OpenAI’s API directly for classification?
