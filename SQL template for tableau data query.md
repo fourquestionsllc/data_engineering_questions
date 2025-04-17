@@ -238,4 +238,141 @@ The LLM should return:
 
 ---
 
-Would you like me to help you implement this using LangChain or Semantic Kernel? Or are you planning to use OpenAI’s API directly for classification?
+Awesome — let’s put it all together in a simple Python implementation that:
+
+1. Uses an LLM (e.g., OpenAI GPT) to classify a question.
+2. Maps the output to a SQL template.
+3. Fills in the placeholders to generate an executable SQL query.
+
+We’ll assume you’re using OpenAI’s API (you can adapt it for LangChain/Semantic Kernel if needed).
+
+---
+
+## ✅ Prerequisites
+
+Install `openai` if you haven’t already:
+
+```bash
+pip install openai
+```
+
+---
+
+## 🧠 Python Code (LLM + Template Filler)
+
+```python
+import openai
+
+# Set your OpenAI key
+openai.api_key = "your-api-key"
+
+# Define SQL templates
+SQL_TEMPLATES = {
+    "T1": {
+        "sql": "SELECT view_name FROM views WHERE workbook_name = '{workbook_name}';"
+    },
+    "T2": {
+        "sql": "SELECT DISTINCT workbook_name FROM workbooks WHERE data_source_name = '{data_source_name}';"
+    },
+    "T3": {
+        "sql": """
+            SELECT v.view_name
+            FROM views v
+            JOIN view_keywords vk ON v.view_id = vk.view_id
+            WHERE vk.keyword = '{keyword}';
+        """
+    },
+    "T4": {
+        "sql": """
+            SELECT keyword
+            FROM view_keywords
+            WHERE view_id = (
+                SELECT view_id FROM views WHERE view_name = '{view_name}'
+            );
+        """
+    },
+    "T5": {
+        "sql": "SELECT view_name FROM views WHERE data_source_name = '{data_source_name}';"
+    },
+    "T6": {
+        "sql": "SELECT workbook_name FROM workbooks;"
+    }
+}
+
+# LLM prompt
+def build_prompt(user_question):
+    return f"""
+You are an AI assistant that maps natural language questions to SQL templates.
+
+Available SQL templates:
+T1 - List views in a specific workbook
+T2 - List workbooks that use a specific data source
+T3 - Get views by a specific keyword
+T4 - Get keywords associated with a specific view
+T5 - Find views using a specific data source
+T6 - List all workbooks
+
+Given a user question, do the following:
+1. Select the best matching template ID from the list (e.g., T1, T2, etc.)
+2. Extract values for any placeholders needed by that template.
+
+Respond in the following JSON format:
+
+{{
+  "template_id": "<template_id>",
+  "placeholders": {{
+    "<placeholder1>": "<value>"
+  }}
+}}
+
+Now process the following question:
+"{user_question}"
+"""
+
+# Use OpenAI to classify and extract placeholders
+def classify_and_fill(user_question):
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",  # or "gpt-4"
+        messages=[
+            {"role": "user", "content": build_prompt(user_question)}
+        ]
+    )
+    
+    import json
+    classification = json.loads(response['choices'][0]['message']['content'])
+    template_id = classification["template_id"]
+    placeholders = classification.get("placeholders", {})
+
+    template_sql = SQL_TEMPLATES[template_id]["sql"]
+    
+    for key, value in placeholders.items():
+        template_sql = template_sql.replace(f"{{{key}}}", value)
+    
+    return template_sql.strip()
+
+# Example usage
+if __name__ == "__main__":
+    question = "Show me all views from the Marketing Insights workbook"
+    sql_query = classify_and_fill(question)
+    print("Generated SQL:")
+    print(sql_query)
+```
+
+---
+
+## 🔄 Output for Example
+
+**User Input:**
+```text
+Show me all views from the Marketing Insights workbook
+```
+
+**Output SQL:**
+```sql
+SELECT view_name FROM views WHERE workbook_name = 'Marketing Insights';
+```
+
+---
+
+
+
