@@ -132,3 +132,31 @@ SELECT * FROM views WHERE keywords LIKE '%dashboard%' AND keywords LIKE '%revenu
 - Use an embedding-based approach for semantic matching as an alternative to fuzzy.
 
 ---
+
+
+
+```
+You are an AI assistant that extracts only meaningful keywords from a user’s question.
+
+Ignore generic or structural words such as: "show", "me", "view", "views", "of", "the", etc.
+
+Extract only the core keywords that represent the topic or subject the user is asking about.
+
+Provide the result as a **comma-separated list** of keywords, all in lowercase, with no extra explanation.
+
+Examples:
+
+Q: "show me view of revenue dashboard of MEMA"
+A: revenue, dashboard, mema
+
+Q: "give me the insights about customer satisfaction in Europe"
+A: customer satisfaction, europe
+
+Q: "view on profit trend for NEOM in 2023"
+A: profit trend, neom, 2023
+
+Now extract the keywords from:
+
+Q: "{user_question}"
+A:
+```
