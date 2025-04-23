@@ -40,3 +40,44 @@ print("Matched keyword:", result)
 ```
 
 Let me know if you'd like to match multiple extracted keywords or hook it up to your SQL database!
+
+
+
+```
+import re
+from fuzzywuzzy import fuzz, process
+import Levenshtein
+
+def sanitize_sql_like(s):
+    # Escape SQL wildcards and remove symbols that could break SQL syntax
+    s = s.replace('%', '').replace('_', '')  # escape wildcards
+    s = re.sub(r"[^\w\s]", "", s)  # keep only word chars and spaces
+    return s
+
+def match_keyword(extracted_keyword, keyword_list, top_n=5):
+    top_matches = process.extract(extracted_keyword, keyword_list, scorer=fuzz.ratio, limit=top_n)
+    
+    matched = []
+    for match, score in top_matches:
+        distance = Levenshtein.distance(extracted_keyword.lower(), match.lower())
+        if distance / max(1, len(extracted_keyword)) <= 1/3:
+            matched.append(sanitize_sql_like(match))
+    
+    return matched
+
+def generate_sql_where_clause(extracted_keywords, keyword_list):
+    conditions = []
+    
+    for keyword in extracted_keywords:
+        matched = match_keyword(keyword, keyword_list)
+        if matched:
+            sub_clauses = [f"keyword LIKE '%{m}%'" for m in matched]
+            group_clause = "(" + " OR ".join(sub_clauses) + ")"
+            conditions.append(group_clause)
+    
+    if not conditions:
+        return ""  # or "WHERE 1=0" to ensure no matches
+    
+    return "WHERE " + " AND ".join(conditions)
+
+```
