@@ -1,83 +1,45 @@
-Here's a Python function that implements the two-step keyword matching logic using:
+Here's a Python function that matches an extracted keyword to a list of available keywords from an SQL database using fuzzy matching followed by edit distance filtering:
 
-1. **Fuzzy matching** to filter top similar keywords.
-2. **Edit distance** to finalize the selection based on a threshold.
-
-We'll use `fuzzywuzzy` for similarity scoring and `Levenshtein` for edit distance:
-
-### 🔧 Required packages:
-Install them via pip:
-```bash
-pip install fuzzywuzzy python-Levenshtein
-```
-
-### ✅ Function Code:
 ```python
-from fuzzywuzzy import fuzz
-from fuzzywuzzy import process
+from difflib import get_close_matches
 import Levenshtein
 
-def match_keyword(extracted_keyword, keyword_list, top_n=5):
-    # Step 1: Fuzzy match to get top N similar keywords
-    top_matches = process.extract(extracted_keyword, keyword_list, scorer=fuzz.ratio, limit=top_n)
+def match_keyword(extracted_keyword, keyword_list, fuzzy_top_n=5, distance_threshold_ratio=1/3):
+    """
+    Match an extracted keyword to the closest ones in the keyword list.
     
-    # Step 2: Select keyword based on edit distance threshold
-    for match, score in top_matches:
-        distance = Levenshtein.distance(extracted_keyword.lower(), match.lower())
-        if distance / max(1, len(extracted_keyword)) <= 1/3:
-            return match
-    
-    return None  # No match passed the edit distance check
+    Parameters:
+        extracted_keyword (str): The keyword extracted from text.
+        keyword_list (list of str): The list of available keywords from the SQL database.
+        fuzzy_top_n (int): Number of top fuzzy matches to consider.
+        distance_threshold_ratio (float): Max edit distance allowed as a fraction of keyword length.
+
+    Returns:
+        list of str: Selected matching keywords.
+    """
+    # Step 1: Use fuzzy matching to get top candidates
+    fuzzy_matches = get_close_matches(extracted_keyword, keyword_list, n=fuzzy_top_n, cutoff=0)
+
+    # Step 2: Filter using edit distance
+    selected_keywords = []
+    for candidate in fuzzy_matches:
+        distance = Levenshtein.distance(extracted_keyword, candidate)
+        if distance / max(len(extracted_keyword), 1) <= distance_threshold_ratio:
+            selected_keywords.append(candidate)
+
+    return selected_keywords
+
+# Example usage
+if __name__ == "__main__":
+    extracted = "custmer"
+    keywords = ["customer", "order", "product", "sales", "custodian"]
+    matches = match_keyword(extracted, keywords)
+    print("Matched Keywords:", matches)
 ```
 
-### 🧪 Example usage:
-```python
-extracted = "reciept"
-available_keywords = ["receipt", "invoice", "bill", "payment", "statement"]
+### Notes:
+- This function uses `difflib.get_close_matches` for fuzzy matching.
+- Then it filters those matches based on edit distance from the `python-Levenshtein` package.
+- Make sure to install the required library: `pip install python-Levenshtein`.
 
-result = match_keyword(extracted, available_keywords)
-print("Matched keyword:", result)
-```
-
-Let me know if you'd like to match multiple extracted keywords or hook it up to your SQL database!
-
-
-
-```
-import re
-from fuzzywuzzy import fuzz, process
-import Levenshtein
-
-def sanitize_sql_like(s):
-    # Escape SQL wildcards and remove symbols that could break SQL syntax
-    s = s.replace('%', '').replace('_', '')  # escape wildcards
-    s = re.sub(r"[^\w\s]", "", s)  # keep only word chars and spaces
-    return s
-
-def match_keyword(extracted_keyword, keyword_list, top_n=5):
-    top_matches = process.extract(extracted_keyword, keyword_list, scorer=fuzz.ratio, limit=top_n)
-    
-    matched = []
-    for match, score in top_matches:
-        distance = Levenshtein.distance(extracted_keyword.lower(), match.lower())
-        if distance / max(1, len(extracted_keyword)) <= 1/3:
-            matched.append(sanitize_sql_like(match))
-    
-    return matched
-
-def generate_sql_where_clause(extracted_keywords, keyword_list):
-    conditions = []
-    
-    for keyword in extracted_keywords:
-        matched = match_keyword(keyword, keyword_list)
-        if matched:
-            sub_clauses = [f"keyword LIKE '%{m}%'" for m in matched]
-            group_clause = "(" + " OR ".join(sub_clauses) + ")"
-            conditions.append(group_clause)
-    
-    if not conditions:
-        return ""  # or "WHERE 1=0" to ensure no matches
-    
-    return "WHERE " + " AND ".join(conditions)
-
-```
+Let me know if you want a version without third-party libraries or tuned for large datasets.
