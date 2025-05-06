@@ -1,15 +1,18 @@
 import pandas as pd
 
-# Step 1: Select the row with the max score for each (keyword, doc) pair
+# Step 1: Keep only the row with the maximum score for each (keyword, doc) pair
 df_max = df.sort_values('score', ascending=False).drop_duplicates(subset=['keyword', 'doc'])
 
-# Step 2: Group by doc, aggregate keywords as list, and sum the scores
-df_result = df_max.groupby('doc').agg({
-    'keyword': list,        # collect keywords
-    'score': 'sum'          # sum of scores
+# Step 2: Group by doc and aggregate keywords and sum scores
+result = df_max.groupby('doc').agg({
+    'keyword': lambda x: list(x),   # aggregate keywords into a list
+    'score': 'sum'                  # sum of scores
 }).reset_index()
 
-# Optional: rename columns
-df_result.rename(columns={'keyword': 'keywords', 'score': 'total_score'}, inplace=True)
+# Step 3: Sort by sum of scores in descending order
+result = result.sort_values('score', ascending=False).reset_index(drop=True)
 
-print(df_result)
+# Rename columns if desired
+result.columns = ['doc', 'keywords', 'total_score']
+
+print(result)
