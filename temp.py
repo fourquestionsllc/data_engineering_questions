@@ -1,18 +1,17 @@
-import pandas as pd
+import re
 
-# Step 1: Keep only the row with the maximum score for each (keyword, doc) pair
-df_max = df.sort_values('score', ascending=False).drop_duplicates(subset=['keyword', 'doc'])
+def insert_space_around_symbols(text: str) -> str:
+    # Step 1: Protect decimals and comma numbers
+    text = re.sub(r'(\d+)\.(\d+)', r'\1DOTDOTDOT\2', text)
+    text = re.sub(r'(\d+),(\d+)', r'\1COMMACOMMACOMMA\2', text)
 
-# Step 2: Group by doc and aggregate keywords and sum scores
-result = df_max.groupby('doc').agg({
-    'keyword': lambda x: list(x),   # aggregate keywords into a list
-    'score': 'sum'                  # sum of scores
-}).reset_index()
+    # Step 2: Add spaces around substrings of non-alphanumeric characters (excluding whitespace)
+    text = re.sub(r'([^a-zA-Z0-9\s]+)', r' \1 ', text)
 
-# Step 3: Sort by sum of scores in descending order
-result = result.sort_values('score', ascending=False).reset_index(drop=True)
+    # Step 3: Normalize multiple spaces
+    text = re.sub(r'\s+', ' ', text).strip()
 
-# Rename columns if desired
-result.columns = ['doc', 'keywords', 'total_score']
+    # Step 4: Restore protected decimal and comma patterns
+    text = text.replace('DOTDOTDOT', '.').replace('COMMACOMMACOMMA', ',')
 
-print(result)
+    return text
