@@ -1,3 +1,126 @@
+Here's a detailed section you can include in your project documentation under **“Tableau View Image Processing Using Vision Model of LLM”**:
+
+---
+
+## Tableau View Image Processing Using Vision Model of LLM
+
+To enhance the discoverability and semantic indexing of financial dashboards built in Tableau at CitiGroup, we implemented an image processing pipeline using a Vision-Language model (VLM). This module automatically generates textual summaries of Tableau view screenshots, allowing users to search and retrieve dashboards based on visual content and context. This capability is essential when dashboard metadata is sparse, inconsistent, or missing.
+
+### Objective
+
+The primary objective is to extract meaningful semantic summaries from Tableau view images (screenshots of dashboards) using a Large Language Model with vision capabilities. These summaries serve as enriched metadata to power semantic search, LLM-assisted querying, and view recommendation systems.
+
+---
+
+### Implementation Details
+
+#### 1. **Architecture Overview**
+
+The image processing component is a standalone module integrated into the main AI dashboard search system. It leverages an OpenAI-compatible Vision model, wrapped inside a callable API to generate human-readable summaries of the dashboard screenshots.
+
+#### 2. **Function Overview**
+
+We use the `generate_with_image` function, which takes in a prompt and the path to a screenshot image, sends a vision query to the model, and receives a concise and context-aware summary.
+
+##### Function Signature:
+
+```python
+def generate_with_image(self, prompt: str, image_path: str, stop: Union[str, None, List[str]] = None, use_case: str = None, **kwargs) -> str:
+```
+
+##### Key Steps:
+
+* **Token Management**:
+
+  * Uses `R2D2Env.token_roller` to securely fetch API tokens for authentication.
+
+* **Image Encoding**:
+
+  * Converts the image at `image_path` into a base64-encoded PNG format using `self.encode_image(image_path)`.
+
+* **Payload Construction**:
+
+  * A `content` list is constructed with both text and image modalities:
+
+    ```json
+    [
+      {"type": "text", "text": prompt},
+      {"type": "image_url", "image_url": {"url": "data:image/png;base64,..." }}
+    ]
+    ```
+  * This hybrid prompt instructs the LLM to describe the content of the dashboard.
+
+* **OpenAI Chat API Call**:
+
+  * Sends the multimodal prompt to the LLM endpoint using `client.chat.completions.create()`.
+  * Parameters include:
+
+    * `model=self.model_name`
+    * `temperature=self.temperature`
+    * `max_tokens=10000` (for verbose summaries)
+
+* **Response Parsing**:
+
+  * Extracts the natural language description from `response.choices[0].message.content`.
+
+##### Example Prompt:
+
+```python
+prompt = "Please describe the content and layout of this Tableau financial dashboard in a detailed summary."
+```
+
+#### 3. **Output Example**
+
+Example output from the Vision model:
+
+```text
+The image presents a comprehensive financial dashboard, titled "VAR Dashboard", which provides an in-depth analysis of various financial metrics across different quarters. The dashboard is organized into columns representing different quarters (Q1 to Q4) and rows categorizing various financial accounts, including assets, liabilities, and equity. Each cell contains specific data points such as actual values, constants, and variances, enabling a detailed examination of financial trends and performance over time.
+```
+
+#### 4. **Benefits**
+
+* **Improved Search Indexing**:
+
+  * Each dashboard view receives a rich, text-based summary for use in vector and keyword search indexes.
+
+* **Contextual Understanding**:
+
+  * Even dashboards with cryptic names or missing metadata can be discovered based on their visual layout and content.
+
+* **Enhanced User Experience**:
+
+  * Summaries are used in UI previews and autocomplete suggestions when querying dashboards using natural language.
+
+---
+
+### Operational Considerations
+
+* **Performance**:
+
+  * Image processing is conducted asynchronously and cached. Summaries are persisted in the metadata database under fields like `view_summary`.
+
+* **Security**:
+
+  * All API communications are SSL-encrypted using `R2D2Env.ssl_cert_file`.
+
+* **Scalability**:
+
+  * The vision-based processing is designed to run in batch mode to pre-process dashboards and during user queries for on-demand processing.
+
+---
+
+### Future Enhancements
+
+* Add OCR-based extraction to identify text within the dashboard that can complement the vision-based summary.
+* Fine-tune prompt templates to generate summaries for different use cases: financial review, compliance checks, executive summaries, etc.
+* Use visual embeddings for similarity-based dashboard clustering.
+
+---
+
+Let me know if you'd like a diagram of the flow, or integration details with vector search or keyword indexing.
+
+
+
 Certainly. Here's a detailed and focused subsection for your project documentation that exclusively describes the **view image data** for Tableau dashboards:
 
 ---
