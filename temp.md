@@ -1,3 +1,79 @@
+Here is a well-structured documentation section describing the **Tableau View Structure** in your AI tool project for CitiGroup:
+
+---
+
+## 📊 Tableau View Structure
+
+The **Tableau View Structure** is the foundation of how the AI tool interacts with and searches through Tableau dashboards. Each *view* represents a specific visual component or page within a Tableau workbook, such as a dashboard, chart, or sheet. These views are extracted, processed, and stored in a structured **SQLite database** to support efficient retrieval using keyword search, semantic similarity, and direct database querying.
+
+### 🔸 Data Source
+
+All view-related metadata is persisted in a local **SQLite database** table, containing a structured schema that reflects key aspects of Tableau's view configuration.
+
+---
+
+### 🧱 Schema Details
+
+Each record in the views table corresponds to a Tableau view and contains the following fields:
+
+| Field Name     | Description                                                                                                                   |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `view_id`      | A **UUID** representing the unique identifier of the view within Tableau. Used as a primary key.                              |
+| `view_name`    | The **title or label** of the view, typically shown in Tableau dashboards.                                                    |
+| `@contentUrl`  | A **relative path** within the Tableau site pointing to the view location. Example: `EMEAExpenseDashboard/sheets/Navigation`. |
+| `@createdAt`   | **Timestamp** when the view was created in Tableau, in ISO 8601 format (e.g., `2023-08-11T16:48:58Z`).                        |
+| `@updatedAt`   | **Timestamp** when the view was last updated. Useful for tracking stale or recently modified dashboards.                      |
+| `@viewUrlName` | A simplified **URL-friendly name** of the view, often identical or similar to `view_name`, used in constructing full URLs.    |
+| `workbook`     | A nested object representing the **parent workbook** that contains the view. It includes the workbook ID and metadata.        |
+| `owner`        | A nested object representing the **creator or owner** of the view. Includes a user ID and metadata.                           |
+| `project`      | A nested object indicating the **project folder** in Tableau where the workbook/view resides.                                 |
+| `tags`         | Any user-defined **tags or labels** assigned to the view for classification. Often `None` unless explicitly tagged.           |
+| `location`     | A JSON-like object representing the **hierarchical location** of the view inside Tableau (site, project, workbook).           |
+| `site_id`      | The **unique identifier of the Tableau site** where the view is hosted.                                                       |
+| `project_id`   | The **ID of the Tableau project folder** associated with the view.                                                            |
+| `workbook_id`  | The **ID of the workbook** containing this view, used to link views to broader dashboard collections.                         |
+
+---
+
+### 🧾 Sample Data Illustration
+
+From the attached sample, the structure of each entry is illustrated with real examples:
+
+* **Navigation View**
+
+  * `view_id`: `0fb50cd3-4dc8-488d-8ed9-6cccf73a484b`
+  * `view_name`: `Navigation`
+  * `@contentUrl`: `EMEAExpenseDashboard/sheets/Navigation`
+  * `workbook_id`: `8f12f3a6-a26e-43e5-ad8f-f6c2ee495aa`
+  * `project_id`: `0b1e4d15-78a4-492b-9fa0-e1718a1fa165`
+  * `site_id`: `3d72ddde-8497-4e47-994c-4465d93ccd6f`
+
+This shows how the AI tool can trace each view back to its location, ownership, and last modification date.
+
+---
+
+### 🧠 Role in AI Tool Architecture
+
+The view metadata is used by all three search modes in the AI tool:
+
+* **Keyword Search**: Matches user-extracted keywords against `view_name`, `@contentUrl`, `tags`, and potentially embedded summaries of the view content.
+* **Semantic Search**: Uses the view's content summary embedding to compare against the vectorized user query, returning views with the highest similarity.
+* **Database Search**: Executes SQL-like queries directly over this view table to fetch matching views by any attribute (e.g., find all views created after a certain date by a specific owner or in a certain project).
+
+---
+
+### 🧩 Benefits of This Structure
+
+* **Scalability**: Easily supports thousands of views across multiple Tableau projects and sites.
+* **Traceability**: View linkage to workbook, owner, and site ensures complete traceability.
+* **Flexibility**: The schema allows extending with additional metadata (e.g., summary embeddings, access permissions, or usage statistics).
+
+---
+
+Let me know if you'd like a section describing how the embeddings are stored or linked to these views for semantic search.
+
+
+
 Project Overview & Use Cases
 
 Business Objectives
