@@ -1,3 +1,64 @@
+Certainly. Here's a detailed and focused subsection for your project documentation that exclusively describes the **view image data** for Tableau dashboards:
+
+---
+
+### 3.4 Tableau View Image Structure
+
+This subsection defines the structure and management of **Tableau view images**, which are static PNG screenshots of financial dashboards. These images are used as a visual reference for various analytical operations in the AI tool.
+
+#### 3.4.1 Definition
+
+View images are high-resolution **PNG** files representing static snapshots of Tableau dashboards. Each image corresponds to a unique Tableau **view** (either a dashboard or worksheet). These screenshots capture the full visual layout of the dashboards at the time they were exported and are used for display, indexing, and visual context retrieval.
+
+#### 3.4.2 Storage and Format
+
+Each view image is saved as an individual file in `.png` format. The images are stored in a structured directory or a storage service (e.g., file system, object storage, or database-backed blob storage). The file path is recorded and associated with the corresponding Tableau view metadata in a dedicated database table.
+
+#### 3.4.3 Database Table: `view_images`
+
+The metadata for each view image is stored in the table `view_images`. This table maintains the relationship between a Tableau view and its corresponding image file.
+
+**Table Schema:**
+
+| Column Name       | Data Type | Description                                                 |
+| ----------------- | --------- | ----------------------------------------------------------- |
+| `view_id`         | STRING    | A unique identifier for the Tableau view (foreign key)      |
+| `view_image_path` | STRING    | File path (relative or absolute) to the stored `.png` image |
+
+* `view_id` uniquely identifies the Tableau view. It corresponds to the primary identifier used in other view-related tables (e.g., workbooks, data sources).
+* `view_image_path` stores the path to the screenshot image file. This path may be local (e.g., `/images/1234_view.png`) or remote (e.g., `s3://tableau-snapshots/1234_view.png`).
+
+#### 3.4.4 File Naming Convention
+
+Images are stored using a consistent and descriptive naming scheme to ensure clarity and traceability:
+
+```
+<view_id>_<optional_dashboard_name>_<timestamp>.png
+```
+
+Example:
+
+```
+a789_market_summary_20250510.png
+```
+
+This convention helps uniquely identify each screenshot and tie it back to its originating dashboard.
+
+#### 3.4.5 Image Consistency and Versioning
+
+Each view image reflects a specific point in time. The system does not currently maintain version history for images, so any updates to dashboards should be accompanied by a replacement of the corresponding image and update of the `view_image_path`.
+
+To ensure consistency:
+
+* All images should reflect the latest published state of the dashboard.
+* Image updates must overwrite the existing file or update the metadata record accordingly.
+
+---
+
+Let me know if you'd like this formatted into a particular style (e.g., Markdown, technical spec template), or if you need a companion schema for SQL creation.
+
+
+
 Here is a well-structured documentation section describing the **Tableau View Structure** in your AI tool project for CitiGroup:
 
 ---
