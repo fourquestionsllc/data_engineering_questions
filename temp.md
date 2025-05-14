@@ -1,3 +1,113 @@
+Here's a well-written and detailed section you can include in your documentation to describe the **semantic search** functionality in your AI tool for querying Tableau financial dashboards at CitiGroup:
+
+---
+
+## Semantic Search-Based Tableau Dashboard Retrieval
+
+The **semantic search module** allows users to query financial dashboards in Tableau using natural language questions, even when there's no exact keyword overlap between the question and the dashboard content. This is achieved by embedding both the user queries and the dashboard summaries into a shared high-dimensional vector space and retrieving the most semantically similar matches.
+
+### Overview
+
+Semantic search works by computing vector embeddings for:
+
+1. **User questions**.
+2. **Synthetic questions** derived from each Tableau dashboard's summary (via LLM-based reverse engineering).
+
+The semantic similarity is then measured by computing the **dot product** between these embeddings. The top-matching dashboards are returned based on this similarity score.
+
+---
+
+### Step-by-Step Process
+
+#### 1. **Synthetic Question Generation from View Summaries**
+
+Each Tableau dashboard has a descriptive **summary** that is reverse-engineered into a list of questions that someone might ask to retrieve the dashboard.
+
+* A large language model (LLM) is prompted with each dashboard summary using the following instruction:
+
+```plaintext
+"Below are the text of summary of a Tableau view. Pretending you do not know the existence of the view yet, 
+but when you ask some questions or make some requests, we need to bring this view up because it has the answer. 
+Generate such questions which can bring this view up from many views, such as: 
+'Which view contains ...' or 'Show me the dashboard of ...'"
+```
+
+* The LLM responds with a list of relevant, high-quality questions per dashboard summary, e.g.:
+
+```python
+["Which view shows Q4 trends for institutional clients?", 
+ "Show me the dashboard with investment banking revenue breakdown",
+ "Where can I find data on regional operating income?"]
+```
+
+These synthetic questions serve as semantic anchors to enable retrieval later.
+
+#### 2. **Embedding Synthetic Questions**
+
+The generated questions are embedded using the **`gte-large-en-v1.5`** model, accessed via the Stellar API (`StellarEmbeddings`). This model converts each question into a 768-dimensional dense vector, optimized for semantic similarity tasks in English.
+
+* The resulting embeddings are stored in a PostgreSQL (or compatible) table along with metadata:
+
+  * `text_id` (hash of the question),
+  * `embedding` (stored as a JSON string),
+  * `embedding_model` (to support future model upgrades),
+  * `original text` (question).
+
+This forms the searchable semantic index.
+
+#### 3. **Embedding the User Query**
+
+When a user submits a question, it is also embedded using the same **`gte-large-en-v1.5`** model to ensure consistency in the vector space. The embedding is compared against the stored question embeddings from the dashboards.
+
+#### 4. **Semantic Matching via Dot Product**
+
+The user query vector is multiplied (dot product) with each stored question embedding to compute similarity scores. This yields a ranked list of dashboard-related questions most semantically similar to the user’s query.
+
+* The helper function `top_k_above_threshold()` filters and selects the **top-k matches** that exceed a similarity threshold (default: 450). It returns the indices of the best-matching synthetic questions.
+
+#### 5. **Retrieving Matched Dashboards**
+
+Once the top matching synthetic questions are identified:
+
+* Their associated **question IDs** are hashed using `md5()`.
+* These IDs are used to query a relational database table (`view_summary_questions`) to retrieve metadata about the corresponding Tableau views:
+
+  * `view_name`
+  * `view_url`
+  * `view_summary`
+  * `view_image_path`
+
+The final output includes:
+
+* A dataframe (`df`) with full metadata on all matched views,
+* A list of records (for display),
+* The matched synthetic questions that triggered the retrieval.
+
+---
+
+### Embedding Model Highlight
+
+* **Model Used**: `gte-large-en-v1.5`
+* **Provider**: Stellar AI via `StellarEmbeddings`
+* **Embedding Dimension**: 768
+* **Characteristics**:
+
+  * Trained for **general-purpose English sentence embeddings**.
+  * Strong performance in semantic similarity and dense retrieval tasks.
+  * Lightweight enough for fast inference, yet robust for enterprise-scale search scenarios.
+
+Using a high-quality embedding model ensures that the system can effectively match user intent to relevant dashboards, even if the user's terminology differs from the text in the dashboards.
+
+---
+
+### Summary
+
+The semantic search component significantly enhances the system's flexibility and user-friendliness by enabling **context-aware**, **meaning-driven** retrieval of Tableau dashboards. By generating synthetic questions for each dashboard and embedding them using the same model as user queries, this approach ensures that dashboards can be discovered even when there's little or no keyword overlap—bridging the gap between natural language and structured enterprise content.
+
+Let me know if you'd like to see a diagram for this flow or an internal engineering summary version.
+
+
+
 Here is a well-structured and detailed documentation section describing the keyword-based Tableau dashboard search mechanism, based on your code and process:
 
 ---
