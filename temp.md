@@ -1,3 +1,134 @@
+Here's a detailed documentation section you can include to describe the **SQL-based Tableau dashboard search** capability of your AI tool at CitiGroup:
+
+---
+
+## SQL Query-Based Tableau Dashboard Search
+
+The **SQL-based search module** provides a powerful mechanism to retrieve Tableau dashboards and related metadata by directly querying the underlying database schema. This approach is ideal when users’ questions refer to structural elements such as **project names**, **workbook revisions**, **datasource links**, **URLs**, or **specific fields** like dashboard summaries and sizes.
+
+It complements keyword and semantic search by enabling **structured, precise, and data-driven access** to Tableau assets.
+
+---
+
+### Overview
+
+This method works by translating a user's natural language question into an executable **SQL query** using a large language model (LLM). The query is run against a SQLite database that mirrors the structure and content of Tableau views, workbooks, projects, data sources, and more. The resulting records are then used to construct answers for the user.
+
+---
+
+### Step-by-Step Process
+
+#### 1. **Schema Awareness and Aliases**
+
+Before generating the SQL, the system initializes the schema and provides it to the LLM in the prompt. The prompt explicitly describes the structure of the following tables:
+
+* **projects** – Contains project-level metadata.
+* **workbooks** – Contains workbook name, description, URLs, summaries, and default view IDs.
+* **datasources** – Stores data source names and their associated project/site.
+* **workbook\_datasource\_connection** – (Used for workbook-to-datasource mappings).
+* **revisions** – Contains workbook revision history including publisher, publish time, and size.
+* **view\_keywords** – Associates view IDs with manually or automatically assigned keywords.
+
+To enhance natural language flexibility, synonyms for commonly used terms are embedded into the prompt. For example:
+
+* *View* may be called: slide, page, chart, graph, diagram, table, or tag.
+* *Workbook* may be called: report, dashboard, visualization, story, canvas, or collection.
+
+This ensures that even vague or colloquial user questions can be mapped to the correct SQL logic.
+
+---
+
+#### 2. **Keyword & Field Extraction (Optional Enhancement)**
+
+To guide the SQL generation, the system may first extract **field-level concepts or entity names** from the user's question using a lightweight keyword extraction function powered by LLM. These values (e.g., workbook names, view IDs, known keywords) are inserted into the SQL generation prompt to improve accuracy and reduce ambiguity.
+
+---
+
+#### 3. **LLM-Based SQL Generation**
+
+The natural language question, available field values, and database schema are passed to the LLM using a structured instruction prompt:
+
+```text
+"In the sqlite db we have the following tables with the schema as follows..."
+```
+
+The LLM is instructed to:
+
+* Generate **only the SQL code**, with no extra text.
+* Select appropriate fields depending on what the user asked.
+* Always include informative columns such as name, URL, summary, and image path if specific fields are not mentioned.
+* Handle synonyms and rephrased terms gracefully.
+
+Sample questions:
+
+* *"Show dashboards about credit risk analysis"* → SQL to search workbook descriptions or summaries.
+* *"Get me the size of the latest revisions for project Alpha"* → SQL to query the `revisions` table filtered by `project name`.
+* *"Which reports are using datasource X?"* → SQL joining `datasources` and `workbooks`.
+
+---
+
+#### 4. **Query Execution and Result Formatting**
+
+Once the SQL is generated:
+
+* It is **sanitized** to remove any leading/trailing characters.
+* Executed via `pandas.read_sql()` over the connected SQLite database.
+* The result is converted to:
+
+  * A **DataFrame** (`result_df`) for programmatic use,
+  * A **JSON string** (`result_json`) for rendering in downstream applications,
+  * A list of **candidate entity names** used in the SQL, for traceability or user feedback.
+
+All results contain fields like:
+
+* `view name`, `workbook name`, `URL`, `summary`, and `image path` (when available),
+* Fields explicitly requested by the user (e.g., publish time, revision size).
+
+---
+
+### Example
+
+**User Query**:
+
+> *"Which dashboards under project Retail have more than 3 revisions and who published the last one?"*
+
+**Generated SQL** (simplified):
+
+```sql
+SELECT workbooks.workbook_name, revisions.revision_publisher_name
+FROM workbooks
+JOIN revisions ON workbooks.workbook_id = revisions.workbook_id
+WHERE workbooks.project_name = 'Retail'
+GROUP BY workbooks.workbook_name
+HAVING COUNT(revisions.workbook_revision_number) > 3
+```
+
+---
+
+### Benefits
+
+* **Precision**: Direct access to structured fields (e.g., workbook size, revision number).
+* **Explainability**: Clear SQL logic that can be logged, audited, or manually refined.
+* **Coverage**: Useful when the question is about metadata or structural attributes not captured in text summaries (e.g., revision history, URL paths).
+
+---
+
+### Summary
+
+The SQL-based dashboard search module enables **deep and accurate** retrieval of Tableau content by translating natural language into executable SQL. It is especially valuable when:
+
+* The user is asking about **specific database fields**,
+* The question references **data lineage**, **publishing metadata**, or **entity relationships**,
+* Or when the other methods (semantic/keyword search) may return overly broad results.
+
+By using an LLM guided with strict schema constraints and structured instructions, the system ensures reliable SQL generation and meaningful Tableau insights.
+
+---
+
+Let me know if you'd like me to create visual flow diagrams or add usage examples for each table.
+
+
+
 Here's a well-written and detailed section you can include in your documentation to describe the **semantic search** functionality in your AI tool for querying Tableau financial dashboards at CitiGroup:
 
 ---
