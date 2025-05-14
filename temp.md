@@ -1,3 +1,93 @@
+Here is a well-structured and detailed documentation section describing the keyword-based Tableau dashboard search mechanism, based on your code and process:
+
+---
+
+## Keyword-Based Tableau Dashboard Search
+
+This section outlines the implementation of the **keyword-based search system** used to retrieve relevant Tableau dashboards from within CitiGroup’s financial reporting ecosystem. This approach leverages both traditional keyword matching and synonym expansion to semantically align user queries with dashboard content.
+
+### 1. **User Query Preprocessing and Keyword Extraction**
+
+When a user submits a natural language question, the system initiates a multi-step keyword extraction process:
+
+* **LLM-Based Extraction**: The query is passed to a large language model (LLM), prompting it to return a Python list of relevant keywords. These keywords are intended to capture the key financial terms or entities that are likely to appear in Tableau dashboard content.
+
+  ```python
+  ## User query: "Show me Q4 revenue for institutional banking"
+  ## Keywords: ['Q4', 'revenue', 'institutional banking']
+  ```
+
+* **Error Handling**: If keyword extraction fails for any reason, the system gracefully falls back to an empty list, avoiding runtime crashes.
+
+### 2. **Keyword Normalization**
+
+To improve keyword-text matching reliability, keywords are normalized using the function:
+
+```python
+insert_space_around_symbols(text: str) -> str
+```
+
+This function:
+
+* Temporarily protects numbers with commas or decimal points,
+* Adds whitespace around special characters,
+* Normalizes whitespace,
+* Restores protected numerical formats.
+
+This ensures consistent matching between keywords and document text segments regardless of formatting inconsistencies.
+
+### 3. **Synonym and Abbreviation Expansion**
+
+To boost recall, especially in the finance and banking context, the system optionally augments each keyword with its **top three synonyms, abbreviations, or full forms** using a domain-specific LLM prompt. This includes variants such as:
+
+* 'Q4' → \['Quarter 4', 'Qtr 4', 'Fourth Quarter']
+* 'revenue' → \['income', 'sales', 'turnover']
+
+These synonyms are cached using a local dictionary and stored via `pickle` for reuse, reducing redundant LLM calls and improving performance.
+
+### 4. **Matching Keywords to Dashboard Text**
+
+Each keyword and its synonyms are matched against the text content extracted from Tableau dashboard views using fuzzy matching:
+
+* **Fuzzy Matching (partial\_ratio)**: The system applies `fuzz.partial_ratio` (from the `fuzzywuzzy` library) to compute similarity scores between the normalized keyword/synonym and text segments from each dashboard.
+* **Thresholding**: Only matches exceeding a configurable threshold (default: 85) are considered relevant.
+* **Scoring**: Matched entries are stored along with their score, the original keyword, the matched synonym, and the matched document text.
+
+### 5. **Scoring and Aggregation**
+
+After all keyword matches are processed, the following steps are executed:
+
+* **Deduplication**: For each (keyword, document) pair, only the highest scoring match is retained.
+* **Aggregation**: The system groups results by document (`doc`) and:
+
+  * Aggregates all matched keywords and synonyms into lists,
+  * Sums the individual match scores into a total relevance score.
+
+### 6. **Filtering and Ranking**
+
+The results are then:
+
+* **Filtered**: Only documents where the total score exceeds `len(keywords) * 70` are retained.
+* **Ranked**: Documents are sorted by total score in descending order.
+* **Joined with Metadata**: Dashboard attributes such as `view name`, `summary`, and `URL` are merged from the metadata index (`view_text_attributes`).
+* **Deduplicated by View ID**: Ensures that each Tableau view appears only once in the final results.
+
+### 7. **Final Output**
+
+The final result is returned in two parts:
+
+* `records`: A concise list of top 5 dashboards (name, URL, and summary) ready for user display.
+* `result`: A full dataframe including all relevant metadata, keywords, synonyms, match scores, and the image path to the dashboard.
+
+---
+
+## Summary
+
+This keyword-based search module provides an efficient and semantically rich way to query Tableau dashboards using natural language. By combining LLM-powered keyword extraction and synonym generation with traditional keyword matching and fuzzy search, it strikes a balance between **precision** and **recall**, ensuring relevant dashboards are surfaced even with varied terminology and phrasing.
+
+Let me know if you'd like this written in a more technical format (e.g. for internal engineering docs), or with a visual flowchart.
+
+
 Here's a detailed section you can include in your project documentation under **“Tableau View Image Processing Using Vision Model of LLM”**:
 
 ---
