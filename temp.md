@@ -1,3 +1,166 @@
+Certainly! Here's a comprehensive and professional **Tech Stack and Dependencies** section you can include in your documentation:
+
+---
+
+## Tech Stack and Dependencies
+
+This section outlines all the core technologies, models, frameworks, and services used in the development of the AI-powered Tableau dashboard search tool at CitiGroup. The system integrates cutting-edge language models, search technologies, embedding strategies, and full-stack application components to enable natural language interaction with Tableau dashboards.
+
+---
+
+### 1. **Large Language Models (LLMs)**
+
+#### 🧠 Llama-3-70B-Instruct
+
+* **Purpose**: Primary model for natural language understanding and generation tasks, including:
+
+  * Keyword extraction
+  * SQL generation
+  * Semantic query reformulation
+  * Synonym/abbreviation expansion
+* **Details**:
+
+  * Model type: Instruction-tuned LLM
+  * Size: 70 billion parameters
+  * Strengths: High-quality reasoning, multilingual understanding, strong adherence to prompts
+  * Hosted via: Internal inference endpoint (`stellar_llm_3`)
+
+#### 🧠 Llama-3.2-90B-Vision-Instruct
+
+* **Purpose**: Used for multimodal tasks involving visual elements (e.g., view image analysis or screenshot captioning).
+* **Details**:
+
+  * Model type: Vision-language model
+  * Size: 90 billion parameters
+  * Features: Supports OCR and reasoning over dashboard images
+  * Future extension point: Potential use for vision-grounded search relevance
+
+---
+
+### 2. **Embeddings & Semantic Search**
+
+#### 🔍 GTE-Large-en-v1.5
+
+* **Purpose**: Sentence embedding model used for semantic similarity matching between user queries and dashboard summaries.
+* **Details**:
+
+  * Model type: General Text Embeddings
+  * Language: English
+  * Strengths: Fast, robust semantic vectorization for search and ranking tasks
+  * Usage:
+
+    * Embeds generated dashboard-level questions
+    * Embeds user query for similarity comparison
+  * Deployed via: `StellarEmbeddings` module with API version `'2023-05-15'`
+
+---
+
+### 3. **Databases**
+
+#### 🗃️ SQLite
+
+* **Purpose**: Lightweight, file-based relational database to store:
+
+  * Tableau metadata (views, workbooks, datasources, revisions, projects)
+  * Embedding vectors and generated dashboard questions
+  * Keyword and synonym mappings
+* **Advantages**:
+
+  * Minimal overhead
+  * Easy integration with Python
+  * Persistent local storage for offline experimentation and prototyping
+
+---
+
+### 4. **Tableau Integration**
+
+#### 📊 Tableau REST API
+
+* **Purpose**: Query Tableau server programmatically for metadata and content extraction.
+* **Usage**:
+
+  * Fetching workbook, view, and project metadata
+  * Downloading view images or thumbnails
+  * Accessing revision history and datasource lineage
+* **Authentication**: Via service account or user token with proper scope
+
+---
+
+### 5. **Frontend & Interaction**
+
+#### 🖥️ Streamlit
+
+* **Purpose**: Frontend framework for rapid development of the interactive UI.
+* **Features**:
+
+  * Natural language input interface for users
+  * Interactive result visualization (view images, summaries, URLs)
+  * Real-time response display for semantic, keyword, and SQL results
+* **Modules Used**:
+
+  * `streamlit.chat` (optional): For conversational Q\&A flow
+  * `streamlit.dataframe`: To present structured search results
+  * File caching and session management for fast prototyping
+
+---
+
+### 6. **NLP Techniques & Support Logic**
+
+#### 🧩 Prompt Engineering
+
+* **Purpose**: Core design strategy used to shape model behavior across different tasks.
+* **Applications**:
+
+  * Instruction prompts for SQL synthesis
+  * Embedded prompts for keyword extraction
+  * Few-shot examples for question generation from dashboard summaries
+* **Design Guidelines**:
+
+  * Clear instruction separation (`### Instruction:` format)
+  * Controlled output types (e.g., list-only responses)
+  * Schema-injected prompts for SQL context grounding
+
+#### 🛠️ Supporting Packages & Libraries
+
+* `re` – Regular expressions for cleaning and parsing LLM outputs
+* `json` – For encoding/decoding structured data
+* `pandas` – Dataframe manipulation and SQL integration
+* `numpy` – Vector math for semantic similarity
+* `fuzzywuzzy` – Partial keyword matching with score thresholds
+* `pickle` – Caching synonym lookups
+* `hashlib` – Generating unique IDs for questions/text entries
+
+---
+
+### 7. **Infrastructure (Optional/Pluggable)**
+
+If deployed in production, the following components are assumed or extendable:
+
+* **Model serving layer**: (e.g., internal LLM hosting, API gateway for Stellar endpoints)
+* **Authentication gateway**: For secure Tableau API access
+* **Logging & Analytics**: For capturing query performance and user activity
+
+---
+
+### Summary
+
+| Component         | Technology/Model                     | Purpose                                    |
+| ----------------- | ------------------------------------ | ------------------------------------------ |
+| LLMs              | Llama-3-70B-Instruct, Llama-3.2-90B  | NLP reasoning, SQL generation, image Q\&A  |
+| Embeddings        | GTE-Large-en-v1.5                    | Semantic search                            |
+| Database          | SQLite                               | Local storage of metadata and embeddings   |
+| Tableau Access    | Tableau REST API                     | Query dashboards, metadata, images         |
+| UI Framework      | Streamlit                            | User interaction and result display        |
+| Search Strategies | Prompt Engineering + NLP modules     | Keyword, synonym, semantic, and SQL search |
+| NLP Libraries     | `re`, `json`, `fuzzywuzzy`, `pandas` | Parsing and post-processing                |
+
+---
+
+Let me know if you’d like an architectural diagram or dependency graph to visually illustrate this stack.
+
+
+
+
 Here's a detailed documentation section you can include to describe the **SQL-based Tableau dashboard search** capability of your AI tool at CitiGroup:
 
 ---
