@@ -260,3 +260,62 @@ if uploaded_file:
 This will display the first page of the uploaded PDF **as an image** inside the chatbot message.
 
 
+
+
+
+If you **can’t install Poppler on Windows**, a good alternative is to use **PyMuPDF** (`fitz`), which **does not require Poppler** and can render PDF pages directly as images.
+
+---
+
+### ✅ **Solution Using PyMuPDF (No Poppler Needed)**
+
+#### 🔧 Install the required package:
+
+```bash
+pip install pymupdf
+```
+
+---
+
+### 🧩 Streamlit Code to Show First Page as Image
+
+```python
+import streamlit as st
+import fitz  # PyMuPDF
+from PIL import Image
+import io
+
+st.title("PDF Chatbot")
+
+uploaded_file = st.file_uploader("Upload a PDF", type="pdf")
+
+if uploaded_file:
+    with st.chat_message("user"):
+        st.markdown("**You uploaded:** " + uploaded_file.name)
+
+        # Load PDF using PyMuPDF
+        pdf_bytes = uploaded_file.read()
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+
+        # Render first page to image
+        page = doc.load_page(0)  # first page (0-indexed)
+        pix = page.get_pixmap(dpi=150)  # increase dpi for better quality
+
+        # Convert to PIL Image
+        image = Image.open(io.BytesIO(pix.tobytes("png")))
+
+        # Show image
+        st.image(image, caption="First page preview", use_column_width=True)
+```
+
+---
+
+### ✅ Why this works well
+
+* No Poppler dependency
+* Fast rendering
+* Cross-platform (Windows included)
+* Easy to integrate in Streamlit `st.chat_message()`
+
+---
+
