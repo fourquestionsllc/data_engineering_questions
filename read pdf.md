@@ -199,3 +199,64 @@ You can now pass this clean `all_content` to a language model (e.g., GPT-4) for 
 
 ---
 
+To **convert the first page of a PDF to an image and show it in a chatbot message (`st.chat_message`)** in Streamlit, follow this approach:
+
+---
+
+### ✅ **Full Example: Show First Page of Uploaded PDF as Image**
+
+This code:
+
+1. Accepts a PDF upload
+2. Converts the **first page** to an image using `pdf2image`
+3. Displays the image inside a `st.chat_message("user")` block
+
+---
+
+#### 🔧 Prerequisites
+
+Install required packages:
+
+```bash
+pip install pdf2image pillow
+```
+
+On some systems, you also need **Poppler**:
+
+* **macOS**: `brew install poppler`
+* **Ubuntu**: `sudo apt install poppler-utils`
+* **Windows**: Download Poppler binaries and add to PATH: [https://blog.alivate.com.au/poppler-windows/](https://blog.alivate.com.au/poppler-windows/)
+
+---
+
+#### 🧩 Streamlit App Code
+
+```python
+import streamlit as st
+from pdf2image import convert_from_bytes
+from PIL import Image
+import tempfile
+
+st.title("PDF Chatbot")
+
+uploaded_file = st.file_uploader("Upload a PDF", type="pdf")
+
+if uploaded_file:
+    with st.chat_message("user"):
+        st.markdown("**You uploaded:** " + uploaded_file.name)
+
+        # Convert first page to image
+        images = convert_from_bytes(uploaded_file.read(), first_page=1, last_page=1)
+
+        if images:
+            # Show the first page image
+            st.image(images[0], caption="First page preview", use_column_width=True)
+```
+
+---
+
+### ✅ Result
+
+This will display the first page of the uploaded PDF **as an image** inside the chatbot message.
+
+
