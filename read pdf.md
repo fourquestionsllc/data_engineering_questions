@@ -112,3 +112,90 @@ The `full_content` string will now have a layout-preserved combination of:
 
 This makes it ideal for feeding into a prompt for an LLM (or embedding store for RAG).
 
+
+
+
+
+Got it. To **avoid overlapping** between text and table content when extracting from PDFs (i.e., **don’t include tables in the raw text**), we need to:
+
+### ✅ Refined Goal
+
+* Extract **only non-table text** from the PDF.
+* Extract **tables separately**.
+* **Combine them in page order**, preserving layout but **without duplication**.
+
+---
+
+### ✅ Updated Plan
+
+#### 🔧 Tools Used:
+
+* `pdfplumber`: To **detect tables** and **avoid** their areas during text extraction.
+* `pandas`: To format extracted tables.
+* **No overlap**: We will mask the bounding boxes of tables when pulling text.
+
+---
+
+### ✅ Step-by-Step Code (No Overlap Version)
+
+```python
+import pdfplumber
+import pandas as pd
+
+def extract_pdf_content_no_overlap(pdf_path):
+    all_content = ""
+
+    with pdfplumber.open(pdf_path) as pdf:
+        for page_number, page in enumerate(pdf.pages, start=1):
+            page_text = ""
+            table_text = ""
+
+            # Get table areas
+            tables = page.find_tables()
+            table_bboxes = [table.bbox for table in tables]
+
+            # Get non-table text (exclude overlapping)
+            lines = page.extract_words(use_text_flow=True, keep_blank_chars=True)
+            for word in lines:
+                word_bbox = [word["x0"], word["top"], word["x1"], word["bottom"]]
+                if not any(intersect(word_bbox, table_bbox) for table_bbox in table_bboxes):
+                    page_text += word["text"] + " "
+
+            # Extract tables as formatted text
+            for i, table in enumerate(page.extract_tables()):
+                df = pd.DataFrame(table)
+                table_text += f"\n--- Table {i+1} (Page {page_number}) ---\n"
+                table_text += df.to_string(index=False, header=False) + "\n"
+
+            # Combine non-overlapping page text and table text
+            all_content += f"\n=== Page {page_number} ===\n"
+            all_content += page_text.strip() + "\n" + table_text.strip() + "\n"
+
+    return all_content
+
+
+def intersect(bbox1, bbox2):
+    """
+    Check if two bounding boxes intersect.
+    bbox = [x0, top, x1, bottom]
+    """
+    x_overlap = not (bbox1[2] <= bbox2[0] or bbox2[2] <= bbox1[0])
+    y_overlap = not (bbox1[3] <= bbox2[1] or bbox2[3] <= bbox1[1])
+    return x_overlap and y_overlap
+```
+
+---
+
+### ✅ Output
+
+* `all_content`: A single string with all the **cleaned text + separated tables**, page by page.
+* **No duplication of table content**.
+
+---
+
+### 🧠 Optional: Feed to LLM for Q\&A
+
+You can now pass this clean `all_content` to a language model (e.g., GPT-4) for question answering without risking table duplication or context confusion.
+
+---
+
