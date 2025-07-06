@@ -1,68 +1,77 @@
-Here's the complete Python `requests`-based POST code for the given API information. This example assumes you already have a valid JWT token (e.g., `jwt_token`) obtained after login.
+To visualize the project hierarchy as a **tree structure** using the dataframe you provided (with columns like `PROJECT_NAME`, `PROJECT_LUID`, and `PARENT_PROJECT_LUID`), we can use **Plotly's Treemap** in **Streamlit** for a rich interactive frontend.
+
+---
+
+### ✅ **Step-by-step Python Code Using Plotly + Streamlit**
 
 ```python
-import requests
+import pandas as pd
+import plotly.express as px
+import streamlit as st
 
-# Endpoint URL
-url = "https://sit.fpnavisualanalyticsreporting.citigroup.net/var/api/v1/monitoring/tableau/createJob?isRuntimeRequest=true"
+# Sample data (replace with your actual df from pd.read_sql or CSV)
+data = [
+    {"PROJECT_NAME": "TacticalPublic Dashboard", "PROJECT_LUID": "0b1e4d15", "PARENT_PROJECT_LUID": "765b7fff"},
+    {"PROJECT_NAME": "TacticalDatasources", "PROJECT_LUID": "b2229a3e", "PARENT_PROJECT_LUID": "765b7fff"},
+    {"PROJECT_NAME": "Datasources", "PROJECT_LUID": "8c2a4963", "PARENT_PROJECT_LUID": "9aeaa8f9"},
+    {"PROJECT_NAME": "Public Dashboard", "PROJECT_LUID": "c50b7ea7", "PARENT_PROJECT_LUID": "9aeaa8f9"},
+    {"PROJECT_NAME": "O&T", "PROJECT_LUID": "7e8b3872", "PARENT_PROJECT_LUID": "765b7fff"},
+    {"PROJECT_NAME": "Adhoc", "PROJECT_LUID": "c585fcb4", "PARENT_PROJECT_LUID": "9aeaa8f9"},
+]
 
-# JWT token (replace with actual token)
-jwt_token = "your_jwt_token_here"
+df = pd.DataFrame(data)
 
-# Headers
-headers = {
-    "Authorization": f"Bearer {jwt_token}",
-    "Content-Type": "application/json"
-}
+# Create a mapping from PROJECT_LUID to PROJECT_NAME for parent names
+luid_to_name = df.set_index("PROJECT_LUID")["PROJECT_NAME"].to_dict()
+df["PARENT_NAME"] = df["PARENT_PROJECT_LUID"].map(luid_to_name)
+df["PARENT_NAME"] = df["PARENT_NAME"].fillna("ROOT")
 
-# Payload
-payload = {
-    "tableauDownloadJob": {
-        "id": "chatbot1",
-        "name": "chatbot1",
-        "fileName": "chatbot1",
-        "fileType": "PDF",
-        "tableausource": "y",
-        "actvInd": "A",
-        "scheduleId": None,
-        "effectivestartot": None,
-        "effectiveEndot": None,
-        "jobGroUp": "TABLEAU DOWNLOAD",
-        "jObTypE": "TABLEAU DOWNLOAD",
-        "sla": 8,
-        "retriggerFlag": None,
-        "successAlertEmail": None,
-        "slaBreachMail": None,
-        "failureAlertMail": None,
-        "channel": "chatbot"  # added to identify source
-    },
-    "workbooksViewscustomviewsMap": {
-        "1W COGNOS": "98e5f82f-cc98-4195-ae31-f68a74d1e68b",
-        "2cvQBR customview": "QBR customview",
-        "3vNavigation": "efb58cd3-4dc8-488d-8ed9-c6ccf73a484b",
-        "4cvvLoans summary": "b400f4f0-abab-4dd7-a858-15c3e58d4651"
-    },
-    "subscribers": [
-        "AK89626",
-        "MM63148"
-    ],
-    "pipelineId": "881"
-}
+# Plotly Treemap
+fig = px.treemap(
+    df,
+    path=["PARENT_NAME", "PROJECT_NAME"],
+    values=[1]*len(df),  # dummy value
+    title="Tableau Project Hierarchy Tree",
+)
 
-# Make POST request
-response = requests.post(url, json=payload, headers=headers, verify=False)  # Set verify=True if SSL cert is valid
-
-# Check response
-if response.status_code == 201:
-    print("Success:", response.json())
-else:
-    print("Error:", response.status_code, response.text)
+# Streamlit App
+st.set_page_config(layout="wide")
+st.title("Tableau Project Tree Structure")
+st.plotly_chart(fig, use_container_width=True)
 ```
 
-### Notes:
+---
 
-* Replace `"your_jwt_token_here"` with your actual JWT token.
-* `verify=False` is used to bypass SSL certificate checks (typical in internal staging environments); remove it in production.
-* Ensure all required fields are filled and field names are **case-sensitive**.
-* The malformed quotes and commas in your sample were corrected for proper JSON.
+### 🔁 How to Use with Your Data
 
+If you're reading from SQL like in your screenshot:
+
+```python
+df = pd.read_sql(query, connection)  # where query contains your SELECT * FROM projects_table
+```
+
+Make sure to keep only relevant columns:
+
+```python
+df = df[["PROJECT_NAME", "PROJECT_LUID", "PARENT_PROJECT_LUID"]]
+```
+
+---
+
+### 📦 Requirements
+
+Install required packages if not already installed:
+
+```bash
+pip install streamlit plotly pandas
+```
+
+Then run:
+
+```bash
+streamlit run your_script_name.py
+```
+
+---
+
+Would you prefer a **collapsible text tree** (like a `nested list`) or this **treemap visualization**? I can show both.
