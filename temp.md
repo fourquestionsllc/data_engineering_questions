@@ -1,33 +1,40 @@
-To display a PDF from binary data in a Jupyter Notebook, you can use `IPython.display` along with a `BytesIO` buffer. Here's a simple way to do it:
+To display the contents of an Excel file from its binary data in a Jupyter notebook, follow these steps:
 
-### ✅ Example Code
+### ✅ Step-by-step Example
+
+Suppose you already have the binary data in a variable called `binary_data` (of type `bytes`).
 
 ```python
-from IPython.display import display, IFrame
+import pandas as pd
 from io import BytesIO
 
-# Assume your binary data is in a variable named `pdf_data`
-# For example: pdf_data = open("example.pdf", "rb").read()
+# Example: binary_data is already defined as bytes
+# binary_data = b'...'
 
-# Convert binary data to BytesIO object
-pdf_file = BytesIO(pdf_data)
+# Load the binary data into a pandas DataFrame
+excel_file = BytesIO(binary_data)
+df = pd.read_excel(excel_file)
 
-# Save to a temporary file (IFrame works with file paths or URLs)
-with open("temp_display.pdf", "wb") as f:
-    f.write(pdf_file.getbuffer())
-
-# Display in the notebook using an IFrame
-display(IFrame("temp_display.pdf", width=800, height=600))
+# Show the DataFrame in the notebook
+df.head()
 ```
 
-### 📌 Notes:
+### ✅ Optional: Multiple Sheets
 
-* `IFrame` is used here because it's the most reliable cross-browser way to show PDFs in a notebook.
-* If you’re running in **Google Colab**, you can replace `IFrame` with:
+If the Excel file contains multiple sheets and you want to see all of them:
 
-  ```python
-  from google.colab import files
-  files.download("temp_display.pdf")
-  ```
+```python
+excel_file = BytesIO(binary_data)
+xls = pd.ExcelFile(excel_file)
 
-Let me know if you'd prefer to display inline without writing to a file (base64 method).
+# Display all sheet names
+print(xls.sheet_names)
+
+# Load each sheet into a dictionary of DataFrames
+dfs = {sheet: xls.parse(sheet) for sheet in xls.sheet_names}
+
+# Show first sheet
+dfs[xls.sheet_names[0]].head()
+```
+
+Let me know if you're reading the binary from an upload or a file — I can adjust the code.
