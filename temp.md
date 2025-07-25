@@ -1,9 +1,20 @@
+import ipywidgets as widgets
 from IPython.display import display
-from PIL import Image
-import io
 
-# Convert binary data to an image
-image = Image.open(io.BytesIO(binary_data))
+# Create a text box
+text_box = widgets.Text(
+    value='',
+    placeholder='Type something',
+    description='Input:',
+    disabled=False
+)
 
-# Display the image in Jupyter Notebook
-display(image)
+# Function to handle input change
+def on_submit(change):
+    print("You entered:", change.value)
+
+# Attach the function to the text box
+text_box.on_submit(on_submit)
+
+# Display the text box
+display(text_box)
