@@ -1,93 +1,92 @@
-To retrieve a **view** from Tableau Server using the **Tableau REST API**, and map it to a URL like:
+To retrieve a **Tableau view by path** using the REST API, you need to follow these steps in Python:
+
+---
+
+### 🔧 **Prerequisites**
+
+* Tableau Personal Access Token (PAT) or username/password.
+* Your `site-id` (or `default` if not using sites).
+* API version (e.g., `3.26`).
+* View's `viewUrlName` — in your case, it's `ExpenseDash`.
+
+Given your full URL:
 
 ```
 https://dev.forecastvisualanalytics.citigroup.net/#/site/FPNA/views/EMEAExpenseDashboard/ExpenseDash
 ```
 
-you can follow these steps:
+* **site-id (name)**: `FPNA`
+* **workbook-url-name**: `EMEAExpenseDashboard`
+* **view-url-name**: `ExpenseDash`
 
 ---
 
-### ✅ Step-by-step Plan
-
-1. **Authenticate** to Tableau Server (sign in).
-2. **Get view by path** using the REST API.
-3. **(Optional)** Reconstruct or confirm the view URL using returned info.
-
----
-
-### 🧠 Extracted Path Components
-
-From the URL:
-
-```
-https://dev.forecastvisualanalytics.citigroup.net/#/site/FPNA/views/EMEAExpenseDashboard/ExpenseDash
-```
-
-* **site**: `FPNA`
-* **workbook**: `EMEAExpenseDashboard`
-* **view**: `ExpenseDash`
-
----
-
-### 🐍 Python Code (Using `requests`)
+### ✅ **Python Code**
 
 ```python
 import requests
 
-# ---- CONFIG ----
-TABLEAU_SERVER = "https://dev.forecastvisualanalytics.citigroup.net"
-USERNAME = "your_tableau_username"
-PASSWORD = "your_tableau_password"
+# Configuration
+SERVER = "https://dev.forecastvisualanalytics.citigroup.net"
+API_VERSION = "3.26"
 SITE_NAME = "FPNA"
-VIEW_PATH = "EMEAExpenseDashboard/ExpenseDash"
+VIEW_URL_NAME = "ExpenseDash"
 
-# ---- SIGN IN ----
-signin_url = f"{TABLEAU_SERVER}/api/3.22/auth/signin"
-headers = {'Content-Type': 'application/json'}
-payload = {
-    "credentials": {
-        "name": USERNAME,
-        "password": PASSWORD,
-        "site": {"contentUrl": SITE_NAME}
+# PAT authentication details
+PAT_NAME = "<your-pat-name>"
+PAT_SECRET = "<your-pat-secret>"
+
+# Step 1: Sign in and get token + site ID
+def sign_in():
+    url = f"{SERVER}/api/{API_VERSION}/auth/signin"
+    headers = {"Content-Type": "application/json"}
+    payload = {
+        "credentials": {
+            "personalAccessTokenName": PAT_NAME,
+            "personalAccessTokenSecret": PAT_SECRET,
+            "site": {"contentUrl": SITE_NAME}
+        }
     }
-}
+    response = requests.post(url, json=payload, headers=headers)
+    response.raise_for_status()
+    resp_json = response.json()
+    token = resp_json["credentials"]["token"]
+    site_id = resp_json["credentials"]["site"]["id"]
+    return token, site_id
 
-response = requests.post(signin_url, json=payload, headers=headers)
-response.raise_for_status()
-data = response.json()
-token = data['credentials']['token']
-site_id = data['credentials']['site']['id']
+# Step 2: Get view by viewUrlName
+def get_view_by_path(token, site_id):
+    headers = {
+        "X-Tableau-Auth": token
+    }
+    filter_expr = f"viewUrlName:eq:{VIEW_URL_NAME}"
+    url = f"{SERVER}/api/{API_VERSION}/sites/{site_id}/views?filter={filter_expr}"
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
+    return response.json()
 
-# ---- GET VIEW BY PATH ----
-view_by_path_url = f"{TABLEAU_SERVER}/api/3.22/sites/{site_id}/views/by-path"
-headers['X-Tableau-Auth'] = token
-params = {'path': VIEW_PATH}
+# Step 3: Sign out (optional but good practice)
+def sign_out(token):
+    url = f"{SERVER}/api/{API_VERSION}/auth/signout"
+    headers = {"X-Tableau-Auth": token}
+    requests.post(url, headers=headers)
 
-view_resp = requests.get(view_by_path_url, headers=headers, params=params)
-view_resp.raise_for_status()
-view_data = view_resp.json()['view']
-
-# ---- PRINT RESULT ----
-view_id = view_data['id']
-workbook_id = view_data['workbook']['id']
-view_name = view_data['name']
-print(f"✅ View ID: {view_id}")
-print(f"✅ View Name: {view_name}")
-print(f"✅ Workbook ID: {workbook_id}")
-
-# ---- RECONSTRUCT VIEW URL (Optional) ----
-final_url = f"{TABLEAU_SERVER}/#/site/{SITE_NAME}/views/{VIEW_PATH}"
-print(f"🌐 URL: {final_url}")
+# Run
+if __name__ == "__main__":
+    try:
+        token, site_id = sign_in()
+        view_data = get_view_by_path(token, site_id)
+        print("View Info:", view_data)
+    finally:
+        sign_out(token)
 ```
 
 ---
 
-### 🔐 Notes
+### 📌 Notes:
 
-* Replace `USERNAME`/`PASSWORD` with your real Tableau credentials or use a **Personal Access Token** if preferred.
-* API version `3.22` is for Tableau 2024.2 — adjust according to your server version.
+* Replace `<your-pat-name>` and `<your-pat-secret>` with your Tableau credentials.
+* If you don’t have PAT, you can use username/password method instead.
+* You can extract the full view URL or ID from the response JSON.
 
----
-
-Want a version using **personal access token** (PAT) instead of username/password?
+Would you like me to help extract the view ID or workbook ID from the response as well?
