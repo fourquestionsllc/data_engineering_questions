@@ -1,53 +1,20 @@
-To create a text box in a **Jupyter Notebook** for user input, you can use the `ipywidgets` library. Here's how to do it:
-
----
-
-### ✅ Example with `ipywidgets.Text`:
-
-```python
+```
 import ipywidgets as widgets
 from IPython.display import display
 
-# Create a text box
-text_box = widgets.Text(
+view_url_input = widgets.Text(
     value='',
-    placeholder='Type something',
-    description='Input:',
+    placeholder='Enter Tableau view URL',
+    description='View URL:',
     disabled=False
 )
 
-# Function to handle input change
-def on_submit(change):
-    print("You entered:", change.value)
+def handle_input(change):
+    global view_url
+    view_url = change['new']
+    print("URL received:", view_url)
 
-# Attach the function to the text box
-text_box.on_submit(on_submit)
+view_url_input.observe(handle_input, names='value')
+display(view_url_input)
 
-# Display the text box
-display(text_box)
 ```
-
----
-
-### 💡 What This Does
-
-* Shows a textbox labeled "Input:"
-* When the user hits Enter, it triggers `on_submit()` and prints the entered value.
-
----
-
-### 🛠 Install `ipywidgets` if needed
-
-If it’s not installed yet:
-
-```bash
-pip install ipywidgets
-```
-
-And enable it for Jupyter:
-
-```bash
-jupyter nbextension enable --py widgetsnbextension
-```
-
-Let me know if you want dropdowns, sliders, or more interactive forms too.
