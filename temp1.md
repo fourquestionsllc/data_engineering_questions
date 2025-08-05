@@ -1,213 +1,175 @@
-To **extract text and tables from a PDF file in Python**, you can use different tools depending on your needs:
+That’s a common need for RAG/QA: you want all *useful* content, keep tables structured, and avoid duplicating text that’s already inside a table. Here’s a robust recipe (with code) using `pdfplumber` + optional `PyMuPDF` for ordering, which:
+
+* Extracts tables with structure preserved (as markdown or TSV)
+* Extracts the *remaining* text (non-overlapping with tables)
+* Orders content in a reading-friendly sequence per page
+* Outputs a single context string suitable to feed to an LLM
 
 ---
 
-## ✅ 1. Extract Text: Use `PyMuPDF` (aka `fitz`) — Fast & Simple
+## Strategy Overview
 
-```python
-import fitz  # PyMuPDF
+1. **Open PDF with `pdfplumber`.** It gives you tables plus the raw text with bounding boxes.
+2. **For each page:**
 
-doc = fitz.open("example.pdf")
-for page in doc:
-    text = page.get_text()
-    print(text)  # or store/save it
-```
-
-> This works for most PDFs, including scanned if OCR text is embedded.
-> For scanned image PDFs with no embedded text, use OCR tools like `pytesseract`.
+   * Extract table bounding boxes and serialize each table (e.g., as markdown).
+   * Extract all words/lines, and **filter out** any text whose bbox overlaps significantly with any table bbox (to avoid duplication).
+   * Sort the remaining text in logical reading order (top-to-bottom, left-to-right).
+3. **Combine per-page content**: interleave “text before table / table / text after table” by comparing vertical positions.
+4. **Produce a single string** where tables are represented in a structured way (e.g., markdown code block or TSV with markers) and non-table text is plain.
 
 ---
 
-## ✅ 2. Extract Tables: Use `pdfplumber` — Best for native PDFs with tables
-
-```python
-import pdfplumber
-
-with pdfplumber.open("example.pdf") as pdf:
-    for page in pdf.pages:
-        tables = page.extract_tables()
-        for table in tables:
-            for row in table:
-                print(row)  # or convert to DataFrame
-```
-
-> You can also convert `table` to a Pandas DataFrame easily:
-
-```python
-import pandas as pd
-df = pd.DataFrame(table)
-print(df)
-```
-
----
-
-## ✅ 3. Combine Text + Table Extraction with `pdfplumber`
+## Example Implementation
 
 ```python
 import pdfplumber
+from typing import List, Tuple
+import itertools
 
-with pdfplumber.open("example.pdf") as pdf:
-    for page in pdf.pages:
-        print("--- Text ---")
-        print(page.extract_text())
+def bbox_overlap(b1, b2, threshold=0.1) -> bool:
+    # b: (x0, top, x1, bottom)
+    x0_1, top_1, x1_1, bottom_1 = b1
+    x0_2, top_2, x1_2, bottom_2 = b2
 
-        print("--- Tables ---")
-        tables = page.extract_tables()
-        for table in tables:
-            for row in table:
-                print(row)
+    # compute intersection area
+    dx = min(x1_1, x1_2) - max(x0_1, x0_2)
+    dy = min(bottom_1, bottom_2) - max(top_1, top_2)
+    if dx <= 0 or dy <= 0:
+        return False
+    intersection = dx * dy
+    area1 = (x1_1 - x0_1) * (bottom_1 - top_1)
+    # if intersection is more than threshold fraction of the smaller bbox, consider overlap
+    if intersection / area1 >= threshold:
+        return True
+    return False
+
+def serialize_table(table: List[List[str]], table_index: int) -> str:
+    # Convert table (list of rows) into markdown-like string preserving structure.
+    if not table:
+        return ""
+    header = table[0]
+    rows = table[1:]
+    md = [f"--- Begin Table {table_index} ---"]
+    # Markdown header
+    md.append("| " + " | ".join(cell.strip() for cell in header) + " |")
+    md.append("|" + "|".join(["---"] * len(header)) + "|")
+    for row in rows:
+        md.append("| " + " | ".join(cell.strip() for cell in row) + " |")
+    md.append(f"--- End Table {table_index} ---\n")
+    return "\n".join(md)
+
+def extract_context_from_pdf(pdf_path: str) -> str:
+    full_context_parts = []
+    with pdfplumber.open(pdf_path) as pdf:
+        for page_number, page in enumerate(pdf.pages, start=1):
+            # 1. Extract tables and their bboxes
+            raw_tables = page.extract_tables()
+            table_bboxes = []
+            serialized_tables = []
+            for ti, table in enumerate(raw_tables, start=1):
+                # pdfplumber does not directly give bbox for extract_tables; approximate by detecting
+                # the union of cell bboxes if needed. Simpler: re-extract via extract_table with
+                # edges if structure is complex. Here we just serialize.
+                serialized = serialize_table(table, ti)
+                serialized_tables.append((ti, serialized))
+                # To avoid overlap, approximate bbox as full page region of where table text appears:
+                # get all words belonging to the table by matching content
+                # (This is heuristic; for stricter needs you'd parse table's cell bounding boxes)
+                # We'll collect word bboxes that appear in table rows:
+                words = page.extract_words()
+                table_words = set(itertools.chain.from_iterable([row for row in table if row]))
+                # Build a bounding box that envelopes any word in the table
+                matching_bboxes = []
+                for w in words:
+                    if any(str(cell).strip() == w["text"].strip() for row in table for cell in row if cell):
+                        matching_bboxes.append((float(w["x0"]), float(w["top"]), float(w["x1"]), float(w["bottom"])))
+                if matching_bboxes:
+                    # Union bbox
+                    x0 = min(b[0] for b in matching_bboxes)
+                    top = min(b[1] for b in matching_bboxes)
+                    x1 = max(b[2] for b in matching_bboxes)
+                    bottom = max(b[3] for b in matching_bboxes)
+                    table_bboxes.append((x0, top, x1, bottom))
+                else:
+                    # fallback: ignore overlap filtering for this table
+                    pass
+
+            # 2. Extract non-table text: use lines or words, filter by overlap
+            words = page.extract_words(use_text_flow=True)  # better for reading order
+            filtered_words = []
+            for w in words:
+                word_bbox = (float(w["x0"]), float(w["top"]), float(w["x1"]), float(w["bottom"]))
+                overlaps = False
+                for tb in table_bboxes:
+                    if bbox_overlap(word_bbox, tb, threshold=0.2):
+                        overlaps = True
+                        break
+                if not overlaps:
+                    filtered_words.append(w)
+
+            # Reconstruct text in reading order: group by top coordinate with a tolerance
+            # Simple approach: sort by (top, x0)
+            filtered_words.sort(key=lambda x: (float(x["top"]), float(x["x0"])))
+            # Join into lines by merging words with similar 'top'
+            lines = []
+            current_line = []
+            current_top = None
+            tolerance = 3  # points in y to consider same line
+            for w in filtered_words:
+                top = float(w["top"])
+                if current_top is None:
+                    current_top = top
+                    current_line = [w["text"]]
+                elif abs(top - current_top) <= tolerance:
+                    current_line.append(w["text"])
+                else:
+                    lines.append(" ".join(current_line))
+                    current_line = [w["text"]]
+                    current_top = top
+            if current_line:
+                lines.append(" ".join(current_line))
+
+            # 3. Merge text and tables by vertical position. Simplify: put all text first, then tables.
+            # For finer-grained interleaving you'd need precise Y positions of each table; here we assume
+            # tables appear roughly where their average top is.
+            page_parts = []
+            page_parts.append(f"--- Page {page_number} Text ---")
+            page_parts.extend(lines)
+            for ti, serialized in serialized_tables:
+                page_parts.append(serialized)
+
+            full_context_parts.append("\n".join(page_parts))
+
+    # Combine everything
+    context = "\n\n".join(full_context_parts)
+    return context
 ```
 
 ---
 
-## ✅ 4. Bonus: OCR (if PDF is scanned) with `pytesseract`
+### Notes / Improvements
 
-```python
-import pytesseract
-from pdf2image import convert_from_path
+* **Better table bbox detection:** The above heuristics for table bounding boxes can miss or over-include; for precision, you can dig into `page.extract_table(...)` with `explicit_vertical_lines=True`/`explicit_horizontal_lines=True` or use `camelot` (PDF must be vector/native, not scanned).
 
-images = convert_from_path("scanned.pdf")
-for img in images:
-    text = pytesseract.image_to_string(img)
-    print(text)
-```
+* **Scanned PDFs:** If the PDF is scanned (no embedded text), first run OCR (e.g., via `pytesseract` on images from `pdf2image` or PyMuPDF rendering) and then apply table detection separately—OCR of tables is harder; tools like `DocTR` or `LayoutParser` can help.
 
-> You’ll need to install [Tesseract OCR engine](https://github.com/tesseract-ocr/tesseract) and `pdf2image`.
+* **Structured serialization:** You can swap markdown for a custom markup the LLM understands, e.g.:
 
----
+  ```
+  [TABLE id=3]
+  col1 | col2
+  ---- | ----
+  a    | b
+  [END TABLE]
+  ```
 
-### 📦 Installation Summary
-
-```bash
-pip install pymupdf pdfplumber pytesseract pdf2image
-```
-
-> And for OCR:
-
-* Install [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) (make sure it's in PATH)
+* **Chunking for LLMs:** After building `context`, you might further split it into semantic chunks while preserving markers for tables if doing retrieval.
 
 ---
 
-Let me know the **type of PDF (native or scanned)** and your **output goal (plain text, structured table, dataframe)** — I can tailor the code for that.
+Would you like a version that:
 
-
-
-To **make the sidebar in Streamlit wider than the default**, you can use **custom CSS** via `st.markdown()` with the `unsafe_allow_html=True` flag.
-
----
-
-### ✅ Example: Set a Wider Sidebar
-
-```python
-import streamlit as st
-
-# Custom CSS to widen the sidebar
-st.markdown(
-    """
-    <style>
-        [data-testid="stSidebar"] {
-            width: 400px;
-        }
-        [data-testid="stSidebar"][aria-expanded="true"] {
-            width: 400px;
-        }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-# Sidebar content
-st.sidebar.title("Custom Wide Sidebar")
-st.sidebar.write("This sidebar is wider than the default.")
-```
-
----
-
-### 📝 Notes:
-
-* Adjust `400px` to your desired width.
-* The two selectors are needed to target both the collapsed and expanded sidebar.
-* Works well with recent Streamlit versions (1.11+).
-
----
-
-Let me know if you want a **responsive** width (e.g. \`% of screen size) or only for large displays!
-
-
-
-Creating a **chatbot in Streamlit** is very doable using a combination of `st.chat_input` (for user input), `st.chat_message` (for displaying messages), and a language model like **OpenAI**, **LLamaIndex**, or even a simple rule-based bot.
-
----
-
-### ✅ Minimal Working Chatbot Example (Using OpenAI)
-
-```python
-import streamlit as st
-import openai
-
-# Set your OpenAI API key
-openai.api_key = "your-api-key"
-
-st.title("💬 Chatbot Example")
-st.caption("Built with Streamlit + OpenAI")
-
-# Initialize chat history
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-# Display chat history
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
-
-# Get user input
-if prompt := st.chat_input("Say something..."):
-    # Show user message
-    st.chat_message("user").markdown(prompt)
-    st.session_state.messages.append({"role": "user", "content": prompt})
-
-    # Generate assistant response
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=st.session_state.messages
-    )
-    reply = response.choices[0].message.content
-
-    # Show assistant message
-    st.chat_message("assistant").markdown(reply)
-    st.session_state.messages.append({"role": "assistant", "content": reply})
-```
-
----
-
-### 🧠 No OpenAI Key? Use a Dummy Response
-
-```python
-reply = "You said: " + prompt
-```
-
----
-
-### 🛠 Install Required Packages
-
-```bash
-pip install streamlit openai
-```
-
----
-
-### ✅ Advanced Options
-
-* Use **LangChain** or **LlamaIndex** for RAG-based chatbots.
-* Add **file upload** and document-based QA.
-* Track chat **state**, logs, or memory.
-* Add **Streamlit sidebar** for chatbot config.
-
----
-
-Let me know if you want:
-
-* A **PDF/document-based** chatbot
-* A chatbot with **memory** or **agent tools**
-* To use **LLMs locally** (e.g., Llama, Mistral)
-  I can tailor the code for your case.
+* Outputs each piece as a JSON object with type `{"type": "text"|"table", "page": ..., "content": ...}` for vector ingestion?
+* Handles scanned PDFs with OCR fallback automatically?
+* Converts tables into structured embeddings-friendly representations (e.g., column headers + row maps)?
