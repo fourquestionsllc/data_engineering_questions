@@ -1,56 +1,91 @@
-Great — since you're on **Windows** and want to **convert a PDF to images using PyMuPDF (a.k.a. `fitz`)** instead of `pdf2image`, here’s how you can do it in **Streamlit** using `PyMuPDF` to render a PDF page (e.g., first page) as an image:
+To **extract text and tables from a PDF file in Python**, you can use different tools depending on your needs:
 
 ---
 
-### ✅ Step-by-step: Convert and Display PDF Page as Image using PyMuPDF
+## ✅ 1. Extract Text: Use `PyMuPDF` (aka `fitz`) — Fast & Simple
 
 ```python
-import streamlit as st
 import fitz  # PyMuPDF
-from PIL import Image
-import io
 
-# Path to the PDF file
-pdf_path = "example.pdf"
-
-# Open PDF with PyMuPDF
-doc = fitz.open(pdf_path)
-
-# Select the page you want (e.g., first page)
-page = doc.load_page(0)  # 0-indexed
-
-# Render page to a pixmap (raster image)
-pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # matrix for 2x zoom
-
-# Convert pixmap to PIL image
-image = Image.open(io.BytesIO(pix.tobytes("png")))
-
-# Display in Streamlit
-st.image(image, caption="Page 1 of PDF", use_column_width=True)
+doc = fitz.open("example.pdf")
+for page in doc:
+    text = page.get_text()
+    print(text)  # or store/save it
 ```
+
+> This works for most PDFs, including scanned if OCR text is embedded.
+> For scanned image PDFs with no embedded text, use OCR tools like `pytesseract`.
 
 ---
 
-### 🔁 Optional: Loop through all pages (multi-page preview)
+## ✅ 2. Extract Tables: Use `pdfplumber` — Best for native PDFs with tables
 
 ```python
-for i in range(len(doc)):
-    page = doc.load_page(i)
-    pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
-    image = Image.open(io.BytesIO(pix.tobytes("png")))
-    st.image(image, caption=f"Page {i + 1}", use_column_width=True)
+import pdfplumber
+
+with pdfplumber.open("example.pdf") as pdf:
+    for page in pdf.pages:
+        tables = page.extract_tables()
+        for table in tables:
+            for row in table:
+                print(row)  # or convert to DataFrame
+```
+
+> You can also convert `table` to a Pandas DataFrame easily:
+
+```python
+import pandas as pd
+df = pd.DataFrame(table)
+print(df)
 ```
 
 ---
 
-### 📦 Installation (if not done yet)
+## ✅ 3. Combine Text + Table Extraction with `pdfplumber`
+
+```python
+import pdfplumber
+
+with pdfplumber.open("example.pdf") as pdf:
+    for page in pdf.pages:
+        print("--- Text ---")
+        print(page.extract_text())
+
+        print("--- Tables ---")
+        tables = page.extract_tables()
+        for table in tables:
+            for row in table:
+                print(row)
+```
+
+---
+
+## ✅ 4. Bonus: OCR (if PDF is scanned) with `pytesseract`
+
+```python
+import pytesseract
+from pdf2image import convert_from_path
+
+images = convert_from_path("scanned.pdf")
+for img in images:
+    text = pytesseract.image_to_string(img)
+    print(text)
+```
+
+> You’ll need to install [Tesseract OCR engine](https://github.com/tesseract-ocr/tesseract) and `pdf2image`.
+
+---
+
+### 📦 Installation Summary
 
 ```bash
-pip install pymupdf pillow
+pip install pymupdf pdfplumber pytesseract pdf2image
 ```
 
-No need for Poppler, so this works well on Windows.
+> And for OCR:
+
+* Install [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) (make sure it's in PATH)
 
 ---
 
-Let me know if you want to render selectively (e.g., page N) or stream images for performance.
+Let me know the **type of PDF (native or scanned)** and your **output goal (plain text, structured table, dataframe)** — I can tailor the code for that.
