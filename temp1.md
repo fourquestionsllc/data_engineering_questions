@@ -44,20 +44,35 @@ def bbox_overlap(b1, b2, threshold=0.1) -> bool:
         return True
     return False
 
-def serialize_table(table: List[List[str]], table_index: int) -> str:
-    # Convert table (list of rows) into markdown-like string preserving structure.
-    if not table:
+def clean_cell(cell: object) -> str:
+    if cell is None:
+        return ""
+    return str(cell).strip()
+
+def serialize_table(table: list[list[str | None]], table_index: int) -> str:
+    if not table or not any(row for row in table):
         return ""
     header = table[0]
     rows = table[1:]
-    md = [f"--- Begin Table {table_index} ---"]
-    # Markdown header
-    md.append("| " + " | ".join(cell.strip() for cell in header) + " |")
-    md.append("|" + "|".join(["---"] * len(header)) + "|")
+
+    md_lines = [f"--- Begin Table {table_index} ---"]
+    # Header row
+    md_lines.append("| " + " | ".join(clean_cell(cell) for cell in header) + " |")
+    # Separator
+    md_lines.append("|" + "|".join(["---"] * len(header)) + "|")
+    # Data rows
     for row in rows:
-        md.append("| " + " | ".join(cell.strip() for cell in row) + " |")
-    md.append(f"--- End Table {table_index} ---\n")
-    return "\n".join(md)
+        # If row is shorter/longer than header, pad or truncate to match
+        row_cells = list(row) if row else []
+        if len(row_cells) < len(header):
+            row_cells += [""] * (len(header) - len(row_cells))
+        elif len(row_cells) > len(header):
+            row_cells = row_cells[: len(header)]
+        md_lines.append("| " + " | ".join(clean_cell(cell) for cell in row_cells) + " |")
+
+    md_lines.append(f"--- End Table {table_index} ---\n")
+    return "\n".join(md_lines)
+
 
 def extract_context_from_pdf(pdf_path: str) -> str:
     full_context_parts = []
