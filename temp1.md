@@ -1,11 +1,15 @@
 import streamlit as st
-from pdf2image import convert_from_path
+import base64
 
-# Path to your PDF
+# PDF file path
 pdf_path = "example.pdf"
 
-# Convert first page to image
-images = convert_from_path(pdf_path, first_page=1, last_page=1)
+# Read the PDF file and encode in base64
+with open(pdf_path, "rb") as f:
+    base64_pdf = base64.b64encode(f.read()).decode('utf-8')
 
-# Show image
-st.image(images[0], caption="First page of PDF", use_column_width=True)
+# Embed PDF in HTML
+pdf_display = f"""
+    <iframe src="data:application/pdf;base64,{base64_pdf}" width="700" height="1000" type="application/pdf"></iframe>
+    """
+st.components.v1.html(pdf_display, height=1000, scrolling=True)
