@@ -1,8 +1,11 @@
 import streamlit as st
-from PIL import Image
+from pdf2image import convert_from_path
 
-# Load image from local file
-image = Image.open("example.png")
+# Path to your PDF
+pdf_path = "example.pdf"
 
-# Display image
-st.image(image, caption='Example PNG', use_column_width=True)
+# Convert first page to image
+images = convert_from_path(pdf_path, first_page=1, last_page=1)
+
+# Show image
+st.image(images[0], caption="First page of PDF", use_column_width=True)
