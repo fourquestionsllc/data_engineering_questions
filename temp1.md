@@ -132,3 +132,82 @@ st.sidebar.write("This sidebar is wider than the default.")
 ---
 
 Let me know if you want a **responsive** width (e.g. \`% of screen size) or only for large displays!
+
+
+
+Creating a **chatbot in Streamlit** is very doable using a combination of `st.chat_input` (for user input), `st.chat_message` (for displaying messages), and a language model like **OpenAI**, **LLamaIndex**, or even a simple rule-based bot.
+
+---
+
+### ✅ Minimal Working Chatbot Example (Using OpenAI)
+
+```python
+import streamlit as st
+import openai
+
+# Set your OpenAI API key
+openai.api_key = "your-api-key"
+
+st.title("💬 Chatbot Example")
+st.caption("Built with Streamlit + OpenAI")
+
+# Initialize chat history
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# Display chat history
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
+
+# Get user input
+if prompt := st.chat_input("Say something..."):
+    # Show user message
+    st.chat_message("user").markdown(prompt)
+    st.session_state.messages.append({"role": "user", "content": prompt})
+
+    # Generate assistant response
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=st.session_state.messages
+    )
+    reply = response.choices[0].message.content
+
+    # Show assistant message
+    st.chat_message("assistant").markdown(reply)
+    st.session_state.messages.append({"role": "assistant", "content": reply})
+```
+
+---
+
+### 🧠 No OpenAI Key? Use a Dummy Response
+
+```python
+reply = "You said: " + prompt
+```
+
+---
+
+### 🛠 Install Required Packages
+
+```bash
+pip install streamlit openai
+```
+
+---
+
+### ✅ Advanced Options
+
+* Use **LangChain** or **LlamaIndex** for RAG-based chatbots.
+* Add **file upload** and document-based QA.
+* Track chat **state**, logs, or memory.
+* Add **Streamlit sidebar** for chatbot config.
+
+---
+
+Let me know if you want:
+
+* A **PDF/document-based** chatbot
+* A chatbot with **memory** or **agent tools**
+* To use **LLMs locally** (e.g., Llama, Mistral)
+  I can tailor the code for your case.
