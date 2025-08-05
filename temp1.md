@@ -1,3 +1,28 @@
+import streamlit as st
+import fitz  # PyMuPDF
+from PIL import Image
+import io
+
+# Path to the PDF file
+pdf_path = "example.pdf"
+
+# Open PDF with PyMuPDF
+doc = fitz.open(pdf_path)
+
+# Select the page you want (e.g., first page)
+page = doc.load_page(0)  # 0-indexed
+
+# Render page to a pixmap (raster image)
+pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # matrix for 2x zoom
+
+# Convert pixmap to PIL image
+image = Image.open(io.BytesIO(pix.tobytes("png")))
+
+# Display in Streamlit
+st.image(image, caption="Page 1 of PDF", use_column_width=True)
+
+
+
 To **display a PDF file in Streamlit from a file path**, the best way depends on your use case. Here are the **most practical and reliable options**:
 
 ---
