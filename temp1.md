@@ -89,3 +89,46 @@ pip install pymupdf pdfplumber pytesseract pdf2image
 ---
 
 Let me know the **type of PDF (native or scanned)** and your **output goal (plain text, structured table, dataframe)** — I can tailor the code for that.
+
+
+
+To **make the sidebar in Streamlit wider than the default**, you can use **custom CSS** via `st.markdown()` with the `unsafe_allow_html=True` flag.
+
+---
+
+### ✅ Example: Set a Wider Sidebar
+
+```python
+import streamlit as st
+
+# Custom CSS to widen the sidebar
+st.markdown(
+    """
+    <style>
+        [data-testid="stSidebar"] {
+            width: 400px;
+        }
+        [data-testid="stSidebar"][aria-expanded="true"] {
+            width: 400px;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# Sidebar content
+st.sidebar.title("Custom Wide Sidebar")
+st.sidebar.write("This sidebar is wider than the default.")
+```
+
+---
+
+### 📝 Notes:
+
+* Adjust `400px` to your desired width.
+* The two selectors are needed to target both the collapsed and expanded sidebar.
+* Works well with recent Streamlit versions (1.11+).
+
+---
+
+Let me know if you want a **responsive** width (e.g. \`% of screen size) or only for large displays!
