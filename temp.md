@@ -1,178 +1,58 @@
-The HTML code you provided shows a file upload form embedded in a Flask/Jinja2 web app, with several interactive features for uploading `.xlsx` files or linking to files via S3. Let me walk you through **how the file upload works** and **what happens next**, step by step:
+To store and load your Tableau API credentials securely in Python, you can follow these steps:
 
 ---
 
-## ✅ 1. **User Interface Behavior**
+### ✅ Step 1: Create the `.env` File
 
-When the user loads the page, they see a form with several drop-down fields and a file input (or S3 URL input) depending on their selection:
+Create a file named `.env` in your project directory with the following content:
 
-### Form Fields:
-
-* `Geography` → `form.category`
-* `Brand` → `form.brand`
-* `Model` → `form.model`
-* `Program` → `form.programs`
-* `Business Input Type` → `form.business_input_types`
-* `Destination Environment` → `form.destination`
-* `Upload Type` → `form.upload_type` (File or S3)
-* File input (`form.file`) OR S3 input (`form.s3`) based on upload type
-* Buttons: `Upload` and `Download`
-
----
-
-## ⚙️ 2. **Dynamic Dropdowns**
-
-Using jQuery:
-
-* The `programs` and `business_input_types` dropdown options are **dynamically filtered** based on `category`, `brand`, `model`, and `programs`.
-* These are updated in real-time via `setBizInputOptions()` and other `onchange` listeners.
-
----
-
-## 📤 3. **Upload Button (`#button`) Click Logic**
-
-In JS:
-
-```js
-$("#upload-form #button").click(function (ev) {
-    ev.preventDefault();  // prevent default submit
-    ...
-    if ($(this).attr("value") == "Upload") {
-        const uploadType = $('#upload_type').find(":selected").val();
-        if ($("#file_input")[0].files.length > 0 || uploadType === "S3") {
-            $("#upload-form").submit();  // Submit the form via POST
-        } else {
-            alert("Please Upload a file");
-        }
-    }
-});
+```env
+SERVER_URL=dev.forecastvisualanalytics.citigroup.net
+API_VERSION=3.19
+TOKEN_NAME=fpna-jingyan
+TOKEN_VALUE=cwY67X+bRLaJwuogUNUdyw==:30Lg7GgBBB93i6MicI7s5]cpIOpWDA2u
+SITE_ID=3d72ddde-8497-4e47-994c-4465d93ccd6f
 ```
 
-> 🔹 This disables buttons and checks if a file or S3 input is present depending on selected `upload_type`.
-> 🔹 If yes, it submits the form with `method="post"` and `enctype="multipart/form-data"`.
-
 ---
 
-## 🚀 4. **Form Submission**
+### ✅ Step 2: Install `python-dotenv` (if not already)
 
-The form posts to this endpoint:
-
-```html
-<form ... method="post" action="user-portal" enctype="multipart/form-data">
+```bash
+pip install python-dotenv
 ```
 
-> The POST is handled by the backend Flask route `/user-portal`.
-
-**What gets submitted:**
-
-* CSRF token (`form.csrf_token`)
-* Selected dropdown values (`form.category`, `form.brand`, etc.)
-* File (from `form.file`) or S3 URL (from `form.s3`), depending on what’s visible.
-
 ---
 
-## 🖥️ 5. **Backend Processing**
-
-You likely have something like this in Flask/Python (not shown but inferred):
+### ✅ Step 3: Load `.env` Variables in Python
 
 ```python
-@app.route("/user-portal", methods=["POST"])
-def upload_file():
-    if form.validate_on_submit():
-        # Parse uploaded file from form.file.data
-        # or download from form.s3.data
-        # Then process the Excel (e.g., pandas, validation)
-        # Save to database or Snowflake, etc.
-        return redirect(url_for("user_portal", status="success"))
-    ...
+from dotenv import load_dotenv
+import os
+
+# Load .env file
+load_dotenv()
+
+# Assign to variables
+server_url = os.getenv("SERVER_URL")
+api_version = os.getenv("API_VERSION")
+token_name = os.getenv("TOKEN_NAME")
+token_value = os.getenv("TOKEN_VALUE")
+site_id = os.getenv("SITE_ID")
+
+# Print to verify (optional)
+print("Server URL:", server_url)
+print("API Version:", api_version)
+print("Token Name:", token_name)
+print("Token Value:", token_value)
+print("Site ID:", site_id)
 ```
 
 ---
 
-## ✅ 6. **After Upload: Show Success Message**
+### 🔒 Security Tips
 
-If upload is successful, the page is redirected with:
+* Add `.env` to your `.gitignore` file to avoid committing credentials to version control.
+* Rotate secrets periodically, especially if they’ve been shared or exposed.
 
-```url
-/user-portal?status=success
-```
-
-This triggers:
-
-```js
-if (new URLSearchParams(window.location.search).get('status') === 'success') {
-    $('#info-message').text('File upload successful');
-    $('#status-info').show();  // Show modal overlay
-}
-```
-
----
-
-## ⬇️ 7. **Download Button Flow**
-
-If the user clicks `Download`:
-
-```js
-fetch('/v2/download', {
-    body: JSON.stringify(data),
-    ...
-    method: 'POST'
-})
-```
-
-This:
-
-* Posts selected form data as JSON to `/v2/download`
-* Receives a `.xlsx` blob as response
-* Downloads it using `a.download = fileName`
-
----
-
-## 🔄 Conditional UI Toggling
-
-The following switches between file input vs. S3 input based on the `upload_type`:
-
-```js
-function updateUploadType() {
-    const uploadType = $('#upload_type').find(":selected").val();
-    if(uploadType == 'File') {
-        $('#file-input').show();
-        $('#s3-input').hide();
-    } else {
-        $('#file-input').hide();
-        $('#s3-input').show();
-    }
-}
-```
-
----
-
-## 🧩 Summary Flow
-
-### 1. Page Loads:
-
-* Dropdowns initialized
-* Options shown/hidden dynamically
-
-### 2. User Fills Form:
-
-* Selects `Geo`, `Brand`, `Model`, `Program`, etc.
-* Uploads `.xlsx` file or pastes S3 URL
-
-### 3. Clicks **Upload**:
-
-* JS checks inputs
-* Submits to `/user-portal`
-
-### 4. Backend Receives POST:
-
-* Validates form
-* Parses `.xlsx` or S3
-* Processes and stores data
-* Redirects with `?status=success`
-
-### 5. Frontend Shows Success Message
-
----
-
-Let me know if you want the **Flask backend code** for handling the file upload or a **diagram** of the full flow.
+Let me know if you want to validate connection to Tableau with these values next.
