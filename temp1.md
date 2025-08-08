@@ -1,35 +1,65 @@
-To **list all databases in PostgreSQL** using **SQLAlchemy**, you can execute a raw SQL query through an engine connection — since PostgreSQL doesn’t expose database metadata through SQLAlchemy's ORM or core API directly.
+To **show all schemas** in a PostgreSQL database and **list all tables** within each schema using **Python and SQLAlchemy**, you can use the `inspect()` function from SQLAlchemy.
 
 ---
 
-## ✅ Example: Show All Databases in PostgreSQL via SQLAlchemy
+## ✅ Full Example Using SQLAlchemy
 
 ```python
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, inspect
 
-# Create engine (connect to *any* existing database, like "postgres")
-engine = create_engine("postgresql+psycopg2://username:password@localhost:5432/postgres")
+# Replace with your DB credentials
+DATABASE_URL = "postgresql+psycopg2://username:password@localhost:5432/your_db_name"
 
-with engine.connect() as conn:
-    result = conn.execute(text("SELECT datname FROM pg_database WHERE datistemplate = false;"))
-    databases = [row[0] for row in result]
-    print(databases)
+# Create SQLAlchemy engine
+engine = create_engine(DATABASE_URL)
+
+# Create inspector
+inspector = inspect(engine)
+
+# Get all schemas
+schemas = inspector.get_schema_names()
+
+print("Schemas and their tables:")
+for schema in schemas:
+    # Skip PostgreSQL internal schemas if you want
+    if schema.startswith("pg_") or schema in ("information_schema",):
+        continue
+
+    # Get all tables for the schema
+    tables = inspector.get_table_names(schema=schema)
+    print(f"\nSchema: {schema}")
+    for table in tables:
+        print(f"  - {table}")
 ```
-
----
-
-### 🔍 Explanation:
-
-* `pg_database` is a system catalog table in PostgreSQL.
-* `datistemplate = false` filters out template databases like `template0` and `template1`.
 
 ---
 
 ## 🧠 Notes
 
-* You must connect to an **existing database** (usually `postgres`) to query `pg_database`. You can't connect without specifying a DB in PostgreSQL.
-* If you connect to a user-defined database, the query still works.
+* **`get_schema_names()`**: Lists all schemas in the database.
+* **`get_table_names(schema='your_schema')`**: Lists all tables in a specific schema.
+* PostgreSQL includes internal schemas like:
+
+  * `pg_catalog`
+  * `information_schema`
+    You can skip them unless you explicitly need them.
 
 ---
 
-Let me know if you'd like to show more system info (e.g., schemas, tables, users) using SQLAlchemy!
+## ✅ Example Output
+
+```
+Schemas and their tables:
+
+Schema: public
+  - users
+  - posts
+
+Schema: vectors
+  - embeddings
+  - metadata
+```
+
+---
+
+Would you also like to list **views** or **columns per table**? That’s also possible with the inspector.
