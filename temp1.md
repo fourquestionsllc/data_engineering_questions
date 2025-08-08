@@ -1,13 +1,14 @@
-To **show all schemas** in a PostgreSQL database and **list all tables** within each schema using **Python and SQLAlchemy**, you can use the `inspect()` function from SQLAlchemy.
+Great! You can combine schema/table discovery with querying and displaying the top 3 rows from **each table** into **Pandas DataFrames**.
 
 ---
 
-## ✅ Full Example Using SQLAlchemy
+## ✅ Full Example: Show Top 3 Rows per Table (per Schema) in DataFrames
 
 ```python
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, text
+import pandas as pd
 
-# Replace with your DB credentials
+# Database connection URL
 DATABASE_URL = "postgresql+psycopg2://username:password@localhost:5432/your_db_name"
 
 # Create SQLAlchemy engine
@@ -16,50 +17,56 @@ engine = create_engine(DATABASE_URL)
 # Create inspector
 inspector = inspect(engine)
 
-# Get all schemas
-schemas = inspector.get_schema_names()
+# Get all schemas (excluding system schemas)
+schemas = [s for s in inspector.get_schema_names() if not s.startswith("pg_") and s != "information_schema"]
 
-print("Schemas and their tables:")
-for schema in schemas:
-    # Skip PostgreSQL internal schemas if you want
-    if schema.startswith("pg_") or schema in ("information_schema",):
-        continue
+# Store results in a dictionary of DataFrames
+dataframes = {}
 
-    # Get all tables for the schema
-    tables = inspector.get_table_names(schema=schema)
-    print(f"\nSchema: {schema}")
-    for table in tables:
-        print(f"  - {table}")
+with engine.connect() as conn:
+    for schema in schemas:
+        tables = inspector.get_table_names(schema=schema)
+
+        for table in tables:
+            try:
+                qualified_name = f'"{schema}"."{table}"'  # quote identifiers to handle case sensitivity
+                query = text(f'SELECT * FROM {qualified_name} LIMIT 3')
+
+                df = pd.read_sql(query, conn)
+                key = f"{schema}.{table}"
+                dataframes[key] = df
+
+                print(f"\n📄 {key} (Top 3 rows):")
+                print(df)
+
+            except Exception as e:
+                print(f"⚠️ Failed to query {schema}.{table}: {e}")
 ```
+
+---
+
+## ✅ Output
+
+This will:
+
+* Discover all non-system schemas
+* Get all tables in each schema
+* Query `SELECT * FROM schema.table LIMIT 3`
+* Load results into a `pandas.DataFrame`
+* Print them, and store them in a dictionary `dataframes` for further use
 
 ---
 
 ## 🧠 Notes
 
-* **`get_schema_names()`**: Lists all schemas in the database.
-* **`get_table_names(schema='your_schema')`**: Lists all tables in a specific schema.
-* PostgreSQL includes internal schemas like:
-
-  * `pg_catalog`
-  * `information_schema`
-    You can skip them unless you explicitly need them.
+* Using double quotes (`"schema"."table"`) handles special characters or capitalized names.
+* If a table has no rows, the DataFrame will be empty.
+* You can access each result by `dataframes["schema.table_name"]`.
 
 ---
 
-## ✅ Example Output
+Let me know if you want to:
 
-```
-Schemas and their tables:
-
-Schema: public
-  - users
-  - posts
-
-Schema: vectors
-  - embeddings
-  - metadata
-```
-
----
-
-Would you also like to list **views** or **columns per table**? That’s also possible with the inspector.
+* Export the results to CSV
+* Include column names/types
+* Use async or SQLAlchemy ORM instead
