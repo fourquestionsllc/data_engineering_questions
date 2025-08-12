@@ -1,45 +1,81 @@
-You can do that easily by combining **`psycopg2`** with **`pandas.read_sql`** so you don’t have to manually `fetchall()` and convert.
+Here’s a Python example using `psycopg2` to:
 
-Here’s the updated version:
+1. Connect to PostgreSQL
+2. List all schemas in a database
+3. List all tables in each schema
+4. Query the first 3 rows of each table as examples
 
 ```python
 import psycopg2
 from psycopg2 import sql
-import pandas as pd
 
-# Connection
-conn = psycopg2.connect(
-    host="localhost",
-    port=5432,
-    database="your_database",
-    user="your_user",
-    password="your_password"
-)
+# Database connection config
+db_config = {
+    "host": "localhost",
+    "port": 5432,
+    "dbname": "your_database",
+    "user": "your_username",
+    "password": "your_password"
+}
 
-# Parameters
-schema_name = "my_schema"
-table_name = "my_table"
+try:
+    # Connect to PostgreSQL
+    conn = psycopg2.connect(**db_config)
+    cur = conn.cursor()
 
-# Build the query safely
-query = sql.SQL("SELECT * FROM {}.{}").format(
-    sql.Identifier(schema_name),
-    sql.Identifier(table_name)
-)
+    # Get all schemas (excluding system schemas)
+    cur.execute("""
+        SELECT schema_name 
+        FROM information_schema.schemata
+        WHERE schema_name NOT IN ('pg_catalog', 'information_schema')
+        ORDER BY schema_name;
+    """)
+    schemas = [row[0] for row in cur.fetchall()]
 
-# Execute and load into DataFrame
-df = pd.read_sql(query.as_string(conn), conn)
+    for schema in schemas:
+        print(f"\nSchema: {schema}")
 
-print(df.head())
+        # Get all tables in the schema
+        cur.execute(sql.SQL("""
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_schema = %s
+            ORDER BY table_name;
+        """), [schema])
+        tables = [row[0] for row in cur.fetchall()]
 
-conn.close()
+        for table in tables:
+            print(f"  Table: {table}")
+
+            # Get first 3 rows as examples
+            try:
+                query = sql.SQL("SELECT * FROM {}.{} LIMIT 3").format(
+                    sql.Identifier(schema),
+                    sql.Identifier(table)
+                )
+                cur.execute(query)
+                rows = cur.fetchall()
+
+                # Print rows
+                for row in rows:
+                    print(f"    {row}")
+                if not rows:
+                    print("    (empty table)")
+            except Exception as e:
+                print(f"    Error reading table: {e}")
+
+    cur.close()
+    conn.close()
+
+except Exception as e:
+    print(f"Database connection failed: {e}")
 ```
 
-**Why this works well:**
+**Notes:**
 
-* `pandas.read_sql()` automatically reads the query results directly into a DataFrame.
-* `.as_string(conn)` turns the `psycopg2.sql` object into a proper SQL string for pandas to run.
-* This keeps it safe for dynamic schema/table names.
+* Replace the `db_config` values with your own PostgreSQL connection details.
+* It skips system schemas (`pg_catalog`, `information_schema`).
+* Uses `psycopg2.sql.Identifier` to safely inject schema/table names.
+* Gracefully handles empty tables or permission errors.
 
-If you want to also **filter, sort, or limit rows dynamically**, you can still build the query with `sql.SQL()` and add parameters.
-
-Do you want me to make a **version that takes db, schema, table, and optional WHERE clause** as arguments and returns a DataFrame? That would make it reusable.
+If you want, I can extend this so that the **column names** are also printed along with the 3 example rows for clarity. That way you’d see something like a small preview table instead of just tuples.
