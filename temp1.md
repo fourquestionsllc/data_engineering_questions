@@ -1,42 +1,26 @@
-You can directly query a fully qualified table like `db.schema.table` in **PostgreSQL** using `psycopg2` and load it into a **pandas DataFrame**.
-In PostgreSQL, the `db` is your **database**, so the fully qualified reference inside SQL is actually `schema.table` (not `db.schema.table`).
+If you’re talking about **pandas / psycopg2 warnings** (like `SettingWithCopyWarning`, `FutureWarning`, or connection-related warnings),
+you can disable them in Python using the `warnings` module.
 
-Here’s an example:
+For example:
 
 ```python
-import psycopg2
-import pandas as pd
+import warnings
 
-# Connection details
-conn = psycopg2.connect(
-    host="your_host",
-    port="5432",              # default PostgreSQL port
-    database="your_database", # the 'db' in db.schema.table
-    user="your_username",
-    password="your_password"
-)
+# Suppress all warnings
+warnings.filterwarnings("ignore")
 
-# Define schema and table
-schema_name = "your_schema"
-table_name = "your_table"
-
-# Query
-sql = f'SELECT * FROM "{schema_name}"."{table_name}"'
-
-# Load into DataFrame
-df = pd.read_sql(sql, conn)
-
-# Close connection
-conn.close()
-
-print(df.head())
+# OR suppress only specific warning categories
+# warnings.filterwarnings("ignore", category=UserWarning)
+# warnings.filterwarnings("ignore", category=FutureWarning)
+# warnings.filterwarnings("ignore", category=DeprecationWarning)
 ```
 
-### Key points:
+If it’s a **pandas** warning (e.g., `SettingWithCopyWarning`), you can also control it via:
 
-* **Database (`db`)** is selected in `psycopg2.connect(database=...)`.
-* Inside SQL, you only need `schema.table`.
-* Always wrap schema and table in **double quotes** (`"schema"."table"`) if they have uppercase letters or special characters.
-* Use **`pd.read_sql()`** to directly read the query result into a DataFrame.
+```python
+pd.options.mode.chained_assignment = None
+```
 
-If you tell me your actual `db.schema.table` name, I can give you the exact working query format.
+If it’s a **psycopg2 SSL / timezone / deprecation warning**, `warnings.filterwarnings` will also suppress it.
+
+Do you want me to make your PostgreSQL → DataFrame code so it **runs cleanly with no warnings at all**? That would combine both fixes.
