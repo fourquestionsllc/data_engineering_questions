@@ -1,63 +1,50 @@
-Got it — you want to:
+You can connect to PostgreSQL in Python using your variables by combining the `database` dictionary you have with a library like **psycopg2** or **SQLAlchemy**.
 
-1. Loop through a directory with many `.csv` files.
-2. For each file:
-
-   * Get the file name without `.csv` → `view_id`.
-   * Read the file’s entire **content as a string** → `view_csv_data_content`.
-3. Create **one DataFrame** with two columns: `view_id` and `view_csv_data_content`.
-
-Here’s a Python program to do that:
+Here’s an example using **psycopg2**:
 
 ```python
 import os
-import pandas as pd
+import psycopg2
 
-# Path to your directory with CSV files
-csv_dir = "/path/to/your/csv_folder"
+# Your database dictionary from the image
+database = {
+    'hostname': "sd-pe31-4x11.nam.nsroot.net",
+    'password': os.getenv("DB_PASSWORD"),
+    'port': 1524,
+    'user': os.getenv("DB_USERNAME", "ctbot_ds_rw_mgd_dev"),
+    'schema': "vectors",
+    'db_name': "docsearch_dev"
+}
 
-# Store results here
-data = []
+try:
+    # Connect to PostgreSQL
+    conn = psycopg2.connect(
+        host=database['hostname'],
+        port=database['port'],
+        dbname=database['db_name'],
+        user=database['user'],
+        password=database['password']
+    )
+    
+    # Create a cursor to run SQL commands
+    cur = conn.cursor()
+    cur.execute("SELECT current_database(), current_schema();")
+    print(cur.fetchall())
+    
+    # Close cursor and connection
+    cur.close()
+    conn.close()
 
-# Loop through all files in the directory
-for file_name in os.listdir(csv_dir):
-    if file_name.lower().endswith(".csv"):
-        view_id = os.path.splitext(file_name)[0]  # file name without .csv
-        
-        # Read file content as string
-        file_path = os.path.join(csv_dir, file_name)
-        with open(file_path, "r", encoding="utf-8") as f:
-            content = f.read()
-        
-        data.append({
-            "view_id": view_id,
-            "view_csv_data_content": content
-        })
-
-# Create DataFrame
-df = pd.DataFrame(data)
-
-print(df.head())
+except Exception as e:
+    print("Database connection failed:", e)
 ```
 
 ---
 
-### Example output
+If you want to **default to a specific schema** (`vectors` in your case), you can set it right after connecting:
 
-If your folder has:
-
-```
-sales.csv
-inventory.csv
+```python
+cur.execute(f"SET search_path TO {database['schema']};")
 ```
 
-Then `df` will look like:
-
-| view\_id  | view\_csv\_data\_content       |
-| --------- | ------------------------------ |
-| sales     | "col1,col2\n1,2\n3,4\n..."     |
-| inventory | "item,qty\napple,10\nbanana,5" |
-
----
-
-Do you also want me to make the program **automatically save this DataFrame into PostgreSQL** after loading? That would combine your earlier request with this one.
+Do you want me to also show you a **SQLAlchemy** version so you can run queries with Pandas easily? That’s often more convenient for data science work.
