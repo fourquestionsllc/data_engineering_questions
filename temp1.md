@@ -1,50 +1,31 @@
-You can connect to PostgreSQL in Python using your variables by combining the `database` dictionary you have with a library like **psycopg2** or **SQLAlchemy**.
-
-Here’s an example using **psycopg2**:
+Here’s a quick Python example to load a `.env` file into environment variables:
 
 ```python
 import os
-import psycopg2
+from dotenv import load_dotenv
 
-# Your database dictionary from the image
-database = {
-    'hostname': "sd-pe31-4x11.nam.nsroot.net",
-    'password': os.getenv("DB_PASSWORD"),
-    'port': 1524,
-    'user': os.getenv("DB_USERNAME", "ctbot_ds_rw_mgd_dev"),
-    'schema': "vectors",
-    'db_name': "docsearch_dev"
-}
+# Load the .env file into environment variables
+load_dotenv(dotenv_path=".env")  # defaults to ".env" in current dir
 
-try:
-    # Connect to PostgreSQL
-    conn = psycopg2.connect(
-        host=database['hostname'],
-        port=database['port'],
-        dbname=database['db_name'],
-        user=database['user'],
-        password=database['password']
-    )
-    
-    # Create a cursor to run SQL commands
-    cur = conn.cursor()
-    cur.execute("SELECT current_database(), current_schema();")
-    print(cur.fetchall())
-    
-    # Close cursor and connection
-    cur.close()
-    conn.close()
+# Access variables
+server_url = os.getenv("server_url")
+api_version = os.getenv("api_version")
+token_name = os.getenv("token_name")
+token_value = os.getenv("token_value")
+site_id = os.getenv("site_id")
 
-except Exception as e:
-    print("Database connection failed:", e)
+print(server_url, api_version, site_id)
 ```
 
----
+**Requirements:**
 
-If you want to **default to a specific schema** (`vectors` in your case), you can set it right after connecting:
-
-```python
-cur.execute(f"SET search_path TO {database['schema']};")
+```bash
+pip install python-dotenv
 ```
 
-Do you want me to also show you a **SQLAlchemy** version so you can run queries with Pandas easily? That’s often more convenient for data science work.
+**Notes:**
+
+* If your `.env` file is in another directory, pass its path to `load_dotenv()`.
+* This method does not overwrite existing environment variables unless you set `override=True`.
+
+If you want, I can also show you a **one-liner way** without installing any packages.
