@@ -1,33 +1,29 @@
-You can do this with **NumPy** and **cosine similarity** from vector normalization.
-Here’s an example:
+Got it — if you already have `top5_indices` from the cosine similarity calculation and a DataFrame named `view_pdf_embeddings`, you can select those rows like this:
 
 ```python
-import numpy as np
+# Select rows by index
+top5_rows = view_pdf_embeddings.iloc[top5_indices]
 
-# Example arrays
-query_vec = np.random.rand(1, 768)          # shape (1, 768)
-embeddings = np.random.rand(204, 768)       # shape (204, 768)
-
-# Normalize vectors for cosine similarity
-query_norm = query_vec / np.linalg.norm(query_vec, axis=1, keepdims=True)
-embeddings_norm = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
-
-# Compute cosine similarities
-cosine_similarities = np.dot(embeddings_norm, query_norm.T).ravel()
-
-# Get top 5 indices sorted by similarity (highest first)
-top5_indices = np.argsort(cosine_similarities)[-5:][::-1]
-
-print("Top 5 indices:", top5_indices)
-print("Top 5 similarities:", cosine_similarities[top5_indices])
+print(top5_rows)
 ```
 
-### How it works:
+If you also want to **add the cosine similarity scores** from the earlier calculation:
 
-1. **Normalize** both the query and the dataset embeddings so that dot product = cosine similarity.
-2. **Matrix multiply** (`np.dot`) to get similarities in one shot.
-3. **`np.argsort`** gives sorted indices; we take last 5 and reverse to get descending order.
+```python
+import pandas as pd
 
-If your embeddings are large, this method is vectorized and **very fast**—no loops needed.
+# Make a copy to avoid modifying the original
+top5_rows = view_pdf_embeddings.iloc[top5_indices].copy()
 
-Do you want me to also make it **return both indices and their similarity scores as a sorted DataFrame**? That would make it easier to inspect.
+# Add similarity scores
+top5_rows["cosine_similarity"] = cosine_similarities[top5_indices]
+
+# Sort by similarity in descending order (just in case)
+top5_rows = top5_rows.sort_values(by="cosine_similarity", ascending=False)
+
+print(top5_rows)
+```
+
+This way, you keep the top 5 rows along with their similarity values.
+
+Do you want me to combine **the similarity calculation and DataFrame selection** into one function so you can reuse it? That would make it one call.
