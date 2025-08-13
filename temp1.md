@@ -1,41 +1,107 @@
-Here’s a clean **system prompt template** you can use to feed your LLM so it has the retrieved Tableau view context in CSV format plus the user’s question:
+import streamlit as st
+import pandas as pd
+import numpy as np
+import openai
 
----
+# -------------------------
+# Setup
+# -------------------------
+openai.api_key = "YOUR_OPENAI_API_KEY"
 
-**Prompt Template**
+# Example: database of Tableau views (you’d load from your real DB)
+# This includes random embeddings for demonstration purposes
+view_pdf_embeddings = pd.DataFrame({
+    "view_name": [f"View {i}" for i in range(10)],
+    "workbook_name": [f"Workbook {i%3}" for i in range(10)],
+    "pdf_text": [f"Example content for view {i} with some dashboard metrics." for i in range(10)],
+    "metadata": [f"Metadata for view {i}" for i in range(10)],
+    "embedding": [np.random.rand(768) for _ in range(10)]
+})
 
-```
-You are an expert data analyst with deep knowledge of Tableau dashboards and their content. 
-You are given data from several Tableau views retrieved based on similarity to the user's question. 
-The data includes the text extracted from each view's PDF, metadata about the view, and the cosine similarity score indicating relevance.
+# -------------------------
+# Functions
+# -------------------------
+def search_views(user_query, top_k=5):
+    """Simulate embedding search with cosine similarity."""
+    # In real app: get embedding from model
+    query_embedding = np.random.rand(768)
 
-The retrieved Tableau views are provided in CSV format:
+    # Normalize
+    query_norm = query_embedding / np.linalg.norm(query_embedding)
+    embeddings_norm = np.vstack(view_pdf_embeddings["embedding"].to_numpy()) / np.linalg.norm(
+        np.vstack(view_pdf_embeddings["embedding"].to_numpy()), axis=1, keepdims=True
+    )
 
-<<<RETRIEVED_VIEWS_CSV>>>
+    # Cosine similarity
+    cosine_similarities = np.dot(embeddings_norm, query_norm)
 
-- Each row represents one view, with columns such as: view_name, workbook_name, site_name, pdf_text, metadata, cosine_similarity.
-- "pdf_text" contains the textual content of the dashboard's PDF export, which may include titles, metrics, and table data.
-- "metadata" contains descriptive information about the view.
+    # Get top k
+    top_indices = np.argsort(cosine_similarities)[-top_k:][::-1]
+
+    results = view_pdf_embeddings.iloc[top_indices].copy()
+    results["cosine_similarity"] = cosine_similarities[top_indices]
+    return results
+
+def ask_llm_question(df_csv, user_question):
+    """Send the CSV + question to the LLM."""
+    prompt = f"""
+You are an expert data analyst with deep knowledge of Tableau dashboards.
+You are given the following retrieved views data in CSV format:
+
+{df_csv}
 
 The user’s question is:
-
-<<<USER_QUESTION>>>
+{user_question}
 
 Your task:
 1. Use only the provided retrieved views' data to answer the question.
-2. If the answer is not fully contained in the data, clearly say so instead of guessing.
-3. Reference relevant view names or metadata where appropriate.
-4. Summarize clearly and concisely, using tables or bullet points if helpful.
-5. Maintain factual accuracy—do not hallucinate.
+2. If the answer is not fully contained in the data, say so.
+3. Reference relevant view names or metadata if helpful.
+4. Be concise and accurate.
 
 Answer:
-```
+"""
+    response = openai.ChatCompletion.create(
+        model="gpt-4o-mini",  # or your preferred model
+        messages=[
+            {"role": "system", "content": "You are a helpful and factual data analysis assistant."},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0
+    )
+    return response.choices[0].message["content"]
 
----
+# -------------------------
+# Streamlit UI
+# -------------------------
+st.set_page_config(layout="wide")
+st.title("Tableau Dashboard Search & Q&A")
 
-✅ **Placeholders:**
+# Two-column layout
+col1, col2 = st.columns(2)
 
-* `<<<RETRIEVED_VIEWS_CSV>>>` → `view_pdf_embeddings.to_csv(index=False)` output (or top 5 rows).
-* `<<<USER_QUESTION>>>` → The actual user query.
+with col1:
+    st.subheader("🔍 Search Tableau Views")
+    search_query = st.text_input("Enter search query:")
+    if st.button("Search"):
+        if search_query.strip():
+            search_results = search_views(search_query)
+            st.session_state["search_results"] = search_results
+            st.dataframe(search_results.drop(columns=["embedding"]))
+        else:
+            st.warning("Please enter a search query.")
 
-If you want, I can rewrite this so that it **dynamically formats the DataFrame to CSV** and plugs it into the prompt string automatically in Python. That would make it ready for your LLM call.
+with col2:
+    st.subheader("💬 Ask about Retrieved Views")
+    if "search_results" in st.session_state:
+        user_question = st.text_area("Enter your question about the retrieved views:")
+        if st.button("Ask LLM"):
+            if user_question.strip():
+                df_csv = st.session_state["search_results"].drop(columns=["embedding"]).to_csv(index=False)
+                answer = ask_llm_question(df_csv, user_question)
+                st.markdown("**Answer:**")
+                st.write(answer)
+            else:
+                st.warning("Please enter a question.")
+    else:
+        st.info("Search for views first to enable Q&A.")
