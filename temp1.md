@@ -1,29 +1,41 @@
-Got it — if you already have `top5_indices` from the cosine similarity calculation and a DataFrame named `view_pdf_embeddings`, you can select those rows like this:
+Here’s a clean **system prompt template** you can use to feed your LLM so it has the retrieved Tableau view context in CSV format plus the user’s question:
 
-```python
-# Select rows by index
-top5_rows = view_pdf_embeddings.iloc[top5_indices]
+---
 
-print(top5_rows)
+**Prompt Template**
+
+```
+You are an expert data analyst with deep knowledge of Tableau dashboards and their content. 
+You are given data from several Tableau views retrieved based on similarity to the user's question. 
+The data includes the text extracted from each view's PDF, metadata about the view, and the cosine similarity score indicating relevance.
+
+The retrieved Tableau views are provided in CSV format:
+
+<<<RETRIEVED_VIEWS_CSV>>>
+
+- Each row represents one view, with columns such as: view_name, workbook_name, site_name, pdf_text, metadata, cosine_similarity.
+- "pdf_text" contains the textual content of the dashboard's PDF export, which may include titles, metrics, and table data.
+- "metadata" contains descriptive information about the view.
+
+The user’s question is:
+
+<<<USER_QUESTION>>>
+
+Your task:
+1. Use only the provided retrieved views' data to answer the question.
+2. If the answer is not fully contained in the data, clearly say so instead of guessing.
+3. Reference relevant view names or metadata where appropriate.
+4. Summarize clearly and concisely, using tables or bullet points if helpful.
+5. Maintain factual accuracy—do not hallucinate.
+
+Answer:
 ```
 
-If you also want to **add the cosine similarity scores** from the earlier calculation:
+---
 
-```python
-import pandas as pd
+✅ **Placeholders:**
 
-# Make a copy to avoid modifying the original
-top5_rows = view_pdf_embeddings.iloc[top5_indices].copy()
+* `<<<RETRIEVED_VIEWS_CSV>>>` → `view_pdf_embeddings.to_csv(index=False)` output (or top 5 rows).
+* `<<<USER_QUESTION>>>` → The actual user query.
 
-# Add similarity scores
-top5_rows["cosine_similarity"] = cosine_similarities[top5_indices]
-
-# Sort by similarity in descending order (just in case)
-top5_rows = top5_rows.sort_values(by="cosine_similarity", ascending=False)
-
-print(top5_rows)
-```
-
-This way, you keep the top 5 rows along with their similarity values.
-
-Do you want me to combine **the similarity calculation and DataFrame selection** into one function so you can reuse it? That would make it one call.
+If you want, I can rewrite this so that it **dynamically formats the DataFrame to CSV** and plugs it into the prompt string automatically in Python. That would make it ready for your LLM call.
