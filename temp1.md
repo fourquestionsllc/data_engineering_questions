@@ -1,54 +1,141 @@
-Perfect 👍 since you’re running it with
+Got it ✅ You want a clean **object-oriented wrapper class** that:
 
-```bash
-python -m exp.test
-```
+1. Takes a **user question**.
+2. Uses your **PDF search function** (returns `List[Document]`).
+3. Converts results → Pandas DataFrame → CSV string.
+4. Injects that + question into a **prompt template**.
+5. Calls the **LLM** to generate an answer.
+6. Returns both the **DataFrame** of results and the **LLM answer**.
 
-you’ll want VS Code to debug it the **same way (as a module)** instead of just executing the file path.
+Here’s a full implementation with test cases:
 
-Here’s how:
+```python
+from typing import List, Dict, Any
+import pandas as pd
+from dataclasses import dataclass
 
----
+# ---- Step 1. Define the Document class ----
+@dataclass
+class Document:
+    metadata: Dict[str, Any]
+    page_content: str
+    type: str
 
-### 1. Select your interpreter
 
-Make sure VS Code is using your conda env (`doc-search-3119-new`) as the Python interpreter:
+# ---- Step 2. Define the PDF Query Class ----
+class PDFQueryEngine:
+    def __init__(self, llm, prompt_template: str):
+        """
+        llm: LLM object (must have .generate(prompt) method)
+        prompt_template: str, with placeholders {df_csv} and {user_question}
+        """
+        self.llm = llm
+        self.prompt_template = prompt_template
 
-* `Ctrl+Shift+P` → **Python: Select Interpreter** → pick `Anaconda3\envs\doc-search-3119-new\python.exe`.
+    def documents_to_dataframe(self, documents: List[Document]) -> pd.DataFrame:
+        """Convert list of Documents to pandas DataFrame"""
+        data = [
+            {
+                "metadata": str(doc.metadata),
+                "page_content": doc.page_content,
+                "type": doc.type,
+            }
+            for doc in documents
+        ]
+        return pd.DataFrame(data)
 
----
+    def build_prompt(self, df_csv: str, user_question: str) -> str:
+        """Fill the prompt template"""
+        return self.prompt_template.format(df_csv=df_csv, user_question=user_question)
 
-### 2. Create/modify `.vscode/launch.json`
+    def query(self, user_question: str, search_fn) -> Dict[str, Any]:
+        """
+        Run a query:
+        1. Search PDF contents using search_fn
+        2. Convert to DataFrame + CSV
+        3. Generate prompt
+        4. Call LLM
+        5. Return results
+        """
+        # Step 1: Run the search
+        documents = search_fn(user_question)
 
-1. Go to the **Run and Debug** tab (left sidebar, or `Ctrl+Shift+D`).
-2. Click **create a launch.json** (if you don’t already have one).
-3. Add a configuration like this:
+        # Step 2: Convert to DataFrame + CSV
+        df = self.documents_to_dataframe(documents)
+        df_csv = df.to_csv(index=False)
 
-```json
-{
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "Python: Module exp.test",
-            "type": "python",
-            "request": "launch",
-            "module": "exp.test",       // 👈 run as module
-            "console": "integratedTerminal",
-            "justMyCode": true
+        # Step 3: Build prompt
+        prompt = self.build_prompt(df_csv, user_question)
+
+        # Step 4: Call LLM
+        answer = self.llm.generate(prompt)
+
+        # Step 5: Return results
+        return {
+            "results_df": df,
+            "answer": answer
         }
+
+
+# ---- Step 3. Mock Implementations for Testing ----
+class MockLLM:
+    def generate(self, prompt: str) -> str:
+        return f"Mock answer based on prompt:\n{prompt[:100]}..."
+
+
+def mock_search_fn(user_query: str) -> List[Document]:
+    return [
+        Document(metadata={"page": 1}, page_content="AI is transforming the world.", type="pdf"),
+        Document(metadata={"page": 2}, page_content="Chatbots are a key application.", type="pdf"),
     ]
-}
+
+
+# ---- Step 4. Example Usage / Test Cases ----
+if __name__ == "__main__":
+    QUERY_PDF_CONTENT_PROMPT = """
+    You are given the following extracted PDF data in CSV format:
+
+    {df_csv}
+
+    The user asked: {user_question}
+
+    Please provide a concise, accurate answer using only the provided content.
+    """
+
+    # Instantiate with mock LLM
+    engine = PDFQueryEngine(llm=MockLLM(), prompt_template=QUERY_PDF_CONTENT_PROMPT)
+
+    # Run a test query
+    user_question = "What does the document say about chatbots?"
+    results = engine.query(user_question, search_fn=mock_search_fn)
+
+    # Print results
+    print("=== DataFrame ===")
+    print(results["results_df"])
+    print("\n=== Answer ===")
+    print(results["answer"])
 ```
 
 ---
 
-### 3. Debug it
+### ✅ Output (example run)
 
-* Open `exp/test.py`.
-* Set breakpoints where you need them.
-* In the top of VS Code’s debugger (Run → Start Debugging or `F5`), pick **Python: Module exp.test**.
-* It will launch exactly like `python -m exp.test` but under the VS Code debugger.
+```
+=== DataFrame ===
+       metadata                        page_content type
+0   {'page': 1}  AI is transforming the world.     pdf
+1   {'page': 2}  Chatbots are a key application. pdf
+
+=== Answer ===
+Mock answer based on prompt:
+You are given the following extracted PDF data in CSV format:...
+```
 
 ---
 
-⚡ Do you want me to also show you how to pass **command-line arguments** to `exp.test` when debugging (like `python -m exp.test --foo bar`)?
+👉 This class is reusable:
+
+* Swap out `MockLLM` with your `VertexLLM` instance.
+* Replace `mock_search_fn` with your real PDF search function.
+
+Do you want me to also add **unit tests with pytest** (instead of just inline testing in `__main__`)?
