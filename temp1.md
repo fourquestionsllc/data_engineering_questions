@@ -1,87 +1,59 @@
-Got it 👍 — you want to query Cosmos DB **Graph API (Gremlin)** from Python **without using `gremlinpython`**, since it often fails on Cosmos due to the `GraphSONSerializersV2d` incompatibility.
+Got it 👍. Since you’re connecting to **Azure CosmosDB Gremlin API**, the Python SDK you’ll want to use is `gremlinpython`. CosmosDB requires **GraphSON v3** serializer (v2 will break, as you noted).
 
-The alternative is to use **`requests`** (or `aiohttp`) to send Gremlin queries directly to the Cosmos DB Gremlin endpoint over HTTPS REST.
-
-Here’s a clean Python example using `requests`:
+Here’s a clean example showing how to load credentials from your `.env` file, create a connection, and run a simple query to fetch nodes:
 
 ```python
 import os
-import requests
-import base64
-import hmac
-import hashlib
-import datetime
-from urllib.parse import quote
+from gremlin_python.driver import client, serializer
 from dotenv import load_dotenv
 
-# Load .env
-load_dotenv(".env")
+# Load environment variables from .env
+load_dotenv(".env")   # update filename if not named .env
 
-# Read env vars
-endpoint = os.getenv("COSMOSDB_GREMLIN_ENDPOINT").replace("wss://", "https://")  # REST requires https
-database = os.getenv("COSMOSDB_GREMLIN_DB")
-graph = os.getenv("COSMOSDB_GREMLIN_GRAPH")
-key = os.getenv("COSMOSDB_GREMLIN_KEY")
+# Read values
+COSMOSDB_GREMLIN_DB = os.getenv("COSMOSDB_GREMLIN_DB")
+COSMOSDB_GREMLIN_GRAPH = os.getenv("COSMOSDB_GREMLIN_GRAPH")
+COSMOSDB_GREMLIN_ENDPOINT = os.getenv("COSMOSDB_GREMLIN_ENDPOINT")
+COSMOSDB_GREMLIN_KEY = os.getenv("COSMOSDB_GREMLIN_KEY")
 
-# Prepare REST API URL
-url = f"{endpoint}dbs/{database}/colls/{graph}"
+# CosmosDB requires database and collection info in the path
+HOST = COSMOSDB_GREMLIN_ENDPOINT
+DATABASE = COSMOSDB_GREMLIN_DB
+GRAPH = COSMOSDB_GREMLIN_GRAPH
+USERNAME = f"/dbs/{DATABASE}/colls/{GRAPH}"
+PASSWORD = COSMOSDB_GREMLIN_KEY
 
-# Helper to build auth header (HMAC-SHA256)
-def build_auth_token(verb, resource_type, resource_link, date, key):
-    key_bytes = base64.b64decode(key)
-    text = f"{verb.lower()}\n{resource_type.lower()}\n{resource_link}\n{date.lower()}\n\n"
-    body = text.encode("utf-8")
-    sig = base64.b64encode(hmac.new(key_bytes, body, hashlib.sha256).digest()).decode()
-    return f"type=master&ver=1.0&sig={sig}"
+# Create Gremlin client (GraphSON v3 to avoid v2 errors)
+gremlin_client = client.Client(
+    HOST,
+    "g",
+    username=USERNAME,
+    password=PASSWORD,
+    message_serializer=serializer.GraphSONSerializersV3d()
+)
 
-# Build request
-verb = "POST"
-resource_type = "docs"
-resource_link = f"dbs/{database}/colls/{graph}"
-utc_date = datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")
-auth_token = build_auth_token(verb, resource_type, resource_link, utc_date, key)
+# Example query: fetch first 5 vertices
+query = "g.V().limit(5)"
 
-headers = {
-    "Authorization": auth_token,
-    "x-ms-date": utc_date,
-    "x-ms-version": "2018-12-31",
-    "Content-Type": "application/query+json"
-}
-
-# Example Gremlin query (get 5 vertices)
-query = {"query": "g.V().limit(5)"}
-
-# Send request
-response = requests.post(url, headers=headers, json=query)
-
-# Show results
-if response.status_code == 200:
-    data = response.json()
-    print("Query results:")
-    for item in data.get("Documents", []):
-        print(item)
-else:
-    print(f"Error {response.status_code}: {response.text}")
+try:
+    print(f"Running query: {query}")
+    callback = gremlin_client.submitAsync(query)
+    if callback.result() is not None:
+        for result in callback.result():
+            print(result)
+    else:
+        print("No results found.")
+finally:
+    gremlin_client.close()
 ```
 
-### Explanation:
+### Key Points:
 
-* Cosmos Graph API supports **REST queries** with the header `application/query+json`.
-* We generate a **master key auth token** manually (HMAC-SHA256).
-* The query payload is simply JSON:
-
-  ```json
-  {"query": "g.V().limit(5)"}
-  ```
-* This returns the first 5 vertices from your graph.
+* ✅ Uses `GraphSONSerializersV3d()` (required by CosmosDB Gremlin API).
+* ✅ Reads from `.env` so secrets stay out of your code.
+* ✅ Example query `g.V().limit(5)` fetches sample nodes.
+* ✅ Avoids `GraphSONSerializersV2d` (which causes Cosmos errors).
 
 ---
 
-⚠️ Note:
-
-* This bypasses `gremlinpython` completely, so no `GraphSONSerializersV2d` issue.
-* The **REST API is slower** than WebSocket (`wss`), but stable for scripting/testing.
-
----
-
-👉 Do you want me to also give you an **async `aiohttp` version** so you can run multiple Gremlin queries in parallel?
+Do you want me to also show you how to **query edges** (e.g., `g.E().limit(5)`) and traverse relationships in CosmosDB, or just fetching vertices is enough for your use case?
