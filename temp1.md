@@ -1,13 +1,16 @@
-Perfect 👍 You’re using **Azure CosmosDB Gremlin API** (graph database). To query it, you can use the **Gremlin Python client** (`gremlinpython`).
+Got it ✅ — makes sense. CosmosDB Gremlin + `gremlinpython` is notoriously finicky because of `GraphSONSerializersV2d` and TinkerPop version mismatches.
+The **better way** is to use the **WebSocket client (`websockets` or `aiogremlin`)** and send raw Gremlin queries, since CosmosDB just expects a WS connection over Gremlin protocol.
 
-Here’s an example script that connects and queries a few nodes from your graph:
+Here’s a working Python example using **`websockets`** (no `gremlinpython` at all):
 
 ```python
 import os
+import json
+import asyncio
+import websockets
 from dotenv import load_dotenv
-from gremlin_python.driver import client, serializer
 
-# Load environment variables
+# Load env
 load_dotenv(".env")
 
 endpoint = os.getenv("COSMOSDB_GREMLIN_ENDPOINT")
@@ -15,48 +18,49 @@ database = os.getenv("COSMOSDB_GREMLIN_DB")
 graph = os.getenv("COSMOSDB_GREMLIN_GRAPH")
 primary_key = os.getenv("COSMOSDB_GREMLIN_KEY")
 
-# Cosmos Gremlin client
-gremlin_client = client.Client(
-    endpoint,
-    'g',
-    username=f"/dbs/{database}/colls/{graph}",
-    password=primary_key,
-    message_serializer=serializer.GraphSONSerializersV2d()
-)
+username = f"/dbs/{database}/colls/{graph}"
+password = primary_key
 
-def run_query(query):
-    print(f"\nRunning: {query}")
-    try:
-        callback = gremlin_client.submitAsync(query)
-        if callback.result() is not None:
-            for result in callback.result():
-                print(result)
-        else:
-            print("No results.")
-    except Exception as e:
-        print(f"Query failed: {e}")
+async def query_gremlin(gremlin_query):
+    async with websockets.connect(
+        endpoint,
+        extra_headers={
+            "Authorization": password,
+            "x-ms-date": "Thu, 01 Jan 1970 00:00:00 GMT",
+            "x-ms-version": "2017-11-15"
+        },
+        subprotocols=["graphson-2.0"]
+    ) as ws:
+        # Gremlin request payload
+        request = {
+            "requestId": "1",
+            "op": "eval",
+            "processor": "",
+            "args": {
+                "gremlin": gremlin_query,
+                "bindings": {},
+                "language": "gremlin-groovy"
+            }
+        }
 
-# Example: get first 5 vertices
-run_query("g.V().limit(5)")
+        await ws.send(json.dumps(request))
+        response = await ws.recv()
+        print("Response:", response)
 
-# Example: get first 5 edges
-run_query("g.E().limit(5)")
-
-gremlin_client.close()
+# Run a test query
+asyncio.run(query_gremlin("g.V().limit(5)"))
 ```
 
 ---
 
-### Steps to run:
+### Notes:
 
-1. Install dependencies:
+* This connects **directly** to Cosmos DB’s Gremlin endpoint via WebSocket.
+* You must set headers (`Authorization`, `x-ms-date`, `x-ms-version`) correctly. Cosmos DB uses the primary key for password.
+* The example query just does `g.V().limit(5)`.
 
-   ```bash
-   pip install gremlinpython python-dotenv
-   ```
-2. Save your `.env` file with the values you posted.
-3. Run the script → it should print up to 5 vertices and 5 edges from your Cosmos Gremlin graph.
+⚠️ Downside: you have to handle **auth signatures (HMAC)** yourself if you want full security instead of always using `primary_key` directly.
 
 ---
 
-👉 Do you want me to also include an **insert sample vertex/edge** snippet (in case your graph is empty, so queries return nothing)?
+👉 Do you want me to extend this into a **reusable helper class** (e.g. `CosmosGremlinClient.query("g.V()")`) so you can query nodes/edges without rewriting all the WS boilerplate?
