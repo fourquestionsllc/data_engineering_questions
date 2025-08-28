@@ -1,141 +1,102 @@
-Got it ✅ You want a clean **object-oriented wrapper class** that:
+Got it ✅ — since your `.env` contains both **Cosmos DB SQL API (DocumentDB)** and **Cosmos DB Gremlin API (Graph DB)** connections, I’ll give you working Python examples for each.
 
-1. Takes a **user question**.
-2. Uses your **PDF search function** (returns `List[Document]`).
-3. Converts results → Pandas DataFrame → CSV string.
-4. Injects that + question into a **prompt template**.
-5. Calls the **LLM** to generate an answer.
-6. Returns both the **DataFrame** of results and the **LLM answer**.
+We’ll first load credentials from `.env` and then query the DB.
 
-Here’s a full implementation with test cases:
+---
+
+## 1. Setup
+
+Install dependencies:
+
+```bash
+pip install python-dotenv azure-cosmos gremlinpython
+```
+
+Your project should have:
+
+```
+.env
+main.py
+```
+
+---
+
+## 2. Python Code
 
 ```python
-from typing import List, Dict, Any
-import pandas as pd
-from dataclasses import dataclass
+import os
+from dotenv import load_dotenv
+from azure.cosmos import CosmosClient, PartitionKey
+from gremlin_python.driver import client, serializer
 
-# ---- Step 1. Define the Document class ----
-@dataclass
-class Document:
-    metadata: Dict[str, Any]
-    page_content: str
-    type: str
+# Load environment variables
+load_dotenv()
 
+### -----------------------------
+### Cosmos DB SQL API (DocumentDB)
+### -----------------------------
+def query_cosmos_sql():
+    conn_str = os.getenv("COSMOSDB_DOC_CONNECTION_STRING")
+    database_name = os.getenv("COSMOSDB_DOC_KA_CONVO_DATABASE")
+    container_name = os.getenv("COSMOSDB_DOC_KA_CONVO_CONTAINER")
 
-# ---- Step 2. Define the PDF Query Class ----
-class PDFQueryEngine:
-    def __init__(self, llm, prompt_template: str):
-        """
-        llm: LLM object (must have .generate(prompt) method)
-        prompt_template: str, with placeholders {df_csv} and {user_question}
-        """
-        self.llm = llm
-        self.prompt_template = prompt_template
+    # Parse connection string manually
+    parts = dict(item.split("=", 1) for item in conn_str.strip(";").split(";") if item)
+    endpoint = parts.get("AccountEndpoint")
+    key = parts.get("AccountKey")
 
-    def documents_to_dataframe(self, documents: List[Document]) -> pd.DataFrame:
-        """Convert list of Documents to pandas DataFrame"""
-        data = [
-            {
-                "metadata": str(doc.metadata),
-                "page_content": doc.page_content,
-                "type": doc.type,
-            }
-            for doc in documents
-        ]
-        return pd.DataFrame(data)
+    client_sql = CosmosClient(endpoint, credential=key)
+    db = client_sql.get_database_client(database_name)
+    container = db.get_container_client(container_name)
 
-    def build_prompt(self, df_csv: str, user_question: str) -> str:
-        """Fill the prompt template"""
-        return self.prompt_template.format(df_csv=df_csv, user_question=user_question)
-
-    def query(self, user_question: str, search_fn) -> Dict[str, Any]:
-        """
-        Run a query:
-        1. Search PDF contents using search_fn
-        2. Convert to DataFrame + CSV
-        3. Generate prompt
-        4. Call LLM
-        5. Return results
-        """
-        # Step 1: Run the search
-        documents = search_fn(user_question)
-
-        # Step 2: Convert to DataFrame + CSV
-        df = self.documents_to_dataframe(documents)
-        df_csv = df.to_csv(index=False)
-
-        # Step 3: Build prompt
-        prompt = self.build_prompt(df_csv, user_question)
-
-        # Step 4: Call LLM
-        answer = self.llm.generate(prompt)
-
-        # Step 5: Return results
-        return {
-            "results_df": df,
-            "answer": answer
-        }
+    query = "SELECT TOP 5 * FROM c"
+    items = list(container.query_items(query=query, enable_cross_partition_query=True))
+    print("\n--- SQL API Query Result ---")
+    for item in items:
+        print(item)
 
 
-# ---- Step 3. Mock Implementations for Testing ----
-class MockLLM:
-    def generate(self, prompt: str) -> str:
-        return f"Mock answer based on prompt:\n{prompt[:100]}..."
+### -----------------------------
+### Cosmos DB Gremlin API (Graph)
+### -----------------------------
+def query_cosmos_gremlin():
+    gremlin_endpoint = os.getenv("COSMOSDB_GREMLIN_ENDPOINT")
+    gremlin_key = os.getenv("COSMOSDB_GREMLIN_KEY")
+    database = os.getenv("COSMOSDB_GREMLIN_DB")
+    graph = os.getenv("COSMOSDB_GREMLIN_GRAPH")
+
+    gremlin_client = client.Client(
+        gremlin_endpoint, "g",
+        username=f"/dbs/{database}/colls/{graph}",
+        password=gremlin_key,
+        message_serializer=serializer.GraphSONSerializersV2d()
+    )
+
+    try:
+        callback = gremlin_client.submitAsync("g.V().limit(5)")
+        if callback.result() is not None:
+            results = callback.result().all().result()
+            print("\n--- Gremlin Query Result ---")
+            for r in results:
+                print(r)
+    except Exception as e:
+        print("Gremlin query error:", e)
+    finally:
+        gremlin_client.close()
 
 
-def mock_search_fn(user_query: str) -> List[Document]:
-    return [
-        Document(metadata={"page": 1}, page_content="AI is transforming the world.", type="pdf"),
-        Document(metadata={"page": 2}, page_content="Chatbots are a key application.", type="pdf"),
-    ]
-
-
-# ---- Step 4. Example Usage / Test Cases ----
 if __name__ == "__main__":
-    QUERY_PDF_CONTENT_PROMPT = """
-    You are given the following extracted PDF data in CSV format:
-
-    {df_csv}
-
-    The user asked: {user_question}
-
-    Please provide a concise, accurate answer using only the provided content.
-    """
-
-    # Instantiate with mock LLM
-    engine = PDFQueryEngine(llm=MockLLM(), prompt_template=QUERY_PDF_CONTENT_PROMPT)
-
-    # Run a test query
-    user_question = "What does the document say about chatbots?"
-    results = engine.query(user_question, search_fn=mock_search_fn)
-
-    # Print results
-    print("=== DataFrame ===")
-    print(results["results_df"])
-    print("\n=== Answer ===")
-    print(results["answer"])
+    query_cosmos_sql()
+    query_cosmos_gremlin()
 ```
 
 ---
 
-### ✅ Output (example run)
+## 3. What This Does
 
-```
-=== DataFrame ===
-       metadata                        page_content type
-0   {'page': 1}  AI is transforming the world.     pdf
-1   {'page': 2}  Chatbots are a key application. pdf
-
-=== Answer ===
-Mock answer based on prompt:
-You are given the following extracted PDF data in CSV format:...
-```
+* **SQL API**: Queries the first 5 documents in `KAConvoHistory` container.
+* **Gremlin API**: Queries the first 5 vertices in `skygraph_devsit`.
 
 ---
 
-👉 This class is reusable:
-
-* Swap out `MockLLM` with your `VertexLLM` instance.
-* Replace `mock_search_fn` with your real PDF search function.
-
-Do you want me to also add **unit tests with pytest** (instead of just inline testing in `__main__`)?
+👉 Do you want me to also show how to **insert data** (both SQL and Gremlin), or just querying is enough for your case?
