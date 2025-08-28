@@ -1,34 +1,62 @@
+Perfect 👍 You’re using **Azure CosmosDB Gremlin API** (graph database). To query it, you can use the **Gremlin Python client** (`gremlinpython`).
+
+Here’s an example script that connects and queries a few nodes from your graph:
+
+```python
 import os
-from azure.cosmos import CosmosClient, exceptions
-
-# Load env vars
 from dotenv import load_dotenv
-load_dotenv(".env")  # make sure this path matches your .env file name
+from gremlin_python.driver import client, serializer
 
-# Get connection info from .env
-connection_string = os.getenv("COSMOSDB_DOC_CONNECTION_STRING")
-database_name = os.getenv("COSMOSDB_DOC_KA_CONVO_DATABASE")
-container_name = os.getenv("COSMOSDB_DOC_KA_CONVO_CONTAINER")
+# Load environment variables
+load_dotenv(".env")
 
-# Initialize Cosmos client
-client = CosmosClient.from_connection_string(connection_string)
+endpoint = os.getenv("COSMOSDB_GREMLIN_ENDPOINT")
+database = os.getenv("COSMOSDB_GREMLIN_DB")
+graph = os.getenv("COSMOSDB_GREMLIN_GRAPH")
+primary_key = os.getenv("COSMOSDB_GREMLIN_KEY")
 
-# Get database and container references
-database = client.get_database_client(database_name)
-container = database.get_container_client(container_name)
+# Cosmos Gremlin client
+gremlin_client = client.Client(
+    endpoint,
+    'g',
+    username=f"/dbs/{database}/colls/{graph}",
+    password=primary_key,
+    message_serializer=serializer.GraphSONSerializersV2d()
+)
 
-# Example: query first 5 items
-query = "SELECT TOP 5 * FROM c"
+def run_query(query):
+    print(f"\nRunning: {query}")
+    try:
+        callback = gremlin_client.submitAsync(query)
+        if callback.result() is not None:
+            for result in callback.result():
+                print(result)
+        else:
+            print("No results.")
+    except Exception as e:
+        print(f"Query failed: {e}")
 
-try:
-    items = list(container.query_items(
-        query=query,
-        enable_cross_partition_query=True
-    ))
+# Example: get first 5 vertices
+run_query("g.V().limit(5)")
 
-    print("Sample items from container:")
-    for item in items:
-        print(item)
+# Example: get first 5 edges
+run_query("g.E().limit(5)")
 
-except exceptions.CosmosHttpResponseError as e:
-    print(f"Query failed: {e.message}")
+gremlin_client.close()
+```
+
+---
+
+### Steps to run:
+
+1. Install dependencies:
+
+   ```bash
+   pip install gremlinpython python-dotenv
+   ```
+2. Save your `.env` file with the values you posted.
+3. Run the script → it should print up to 5 vertices and 5 edges from your Cosmos Gremlin graph.
+
+---
+
+👉 Do you want me to also include an **insert sample vertex/edge** snippet (in case your graph is empty, so queries return nothing)?
