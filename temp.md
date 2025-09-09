@@ -1,50 +1,47 @@
-Python function that:
+Got it 👍 You have a string that looks like:
 
-* Takes a list of dictionaries, each containing `keyword_type` and `keyword_value`.
-* Takes a mapping dictionary (e.g. `{"typeA": "mappedA"}`) to replace `keyword_type` with another string.
-* Returns a new list where `keyword_type` is replaced according to the mapping.
+```
+"some text before { 'a': 1, 'b': 2 } some text after"
+```
 
-Here’s a clean implementation:
+and you want to:
+
+1. Extract the `{ ... }` portion.
+2. Convert it into a real Python dictionary.
+
+Here’s a safe function for that:
 
 ```python
-def remap_keywords(data, type_map):
+import re
+import ast
+
+def extract_dict(text):
     """
-    Replace 'keyword_type' in a list of dicts based on a mapping.
+    Extract the first {...} dictionary from a string and convert it to a Python dict.
 
     Args:
-        data (list[dict]): List of dicts with keys 'keyword_type' and 'keyword_value'.
-        type_map (dict): Mapping from old keyword_type to new string.
+        text (str): Input string containing a dictionary inside { }.
 
     Returns:
-        list[dict]: New list with keyword_type replaced.
+        dict: Parsed dictionary, or None if not found/invalid.
     """
-    result = []
-    for item in data:
-        mapped_type = type_map.get(item["keyword_type"], item["keyword_type"])  # fallback to original
-        result.append({
-            "keyword_type": mapped_type,
-            "keyword_value": item["keyword_value"]
-        })
-    return result
+    match = re.search(r"\{.*?\}", text, re.DOTALL)
+    if not match:
+        return None
+    
+    dict_str = match.group(0)
+    try:
+        return ast.literal_eval(dict_str)
+    except (SyntaxError, ValueError):
+        return None
 
 
 # Example usage
-data = [
-    {"keyword_type": "A", "keyword_value": "apple"},
-    {"keyword_type": "B", "keyword_value": "banana"},
-    {"keyword_type": "C", "keyword_value": "cherry"},
-]
-
-type_map = {
-    "A": "FruitA",
-    "B": "FruitB"
-}
-
-print(remap_keywords(data, type_map))
-# Output:
-# [{'keyword_type': 'FruitA', 'keyword_value': 'apple'},
-#  {'keyword_type': 'FruitB', 'keyword_value': 'banana'},
-#  {'keyword_type': 'C', 'keyword_value': 'cherry'}]
+s = "extra text { 'x': 10, 'y': 20 } more text"
+print(extract_dict(s))  # {'x': 10, 'y': 20}
 ```
 
-👉 This keeps unmapped types unchanged.
+✅ `ast.literal_eval` is safer than `eval` because it only parses literals (dicts, lists, numbers, strings).
+✅ The regex `\{.*?\}` grabs the first `{...}` block (non-greedy).
+
+Do you want this function to handle **multiple `{}` blocks** in the same string (and return a list of dicts), or always just the first one?
