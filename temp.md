@@ -1,96 +1,53 @@
-Great question 👍 — I see exactly what you want:
-Right now, your `chat_graph_agent.py` passes **all conversation history** to the LLM each time. You want to **truncate to the last *n* human+AI messages** (while still keeping the full history in Cosmos DB), and importantly you **don’t want tool messages to count toward the limit**.
+Sure! We can write a small test script using **dummy `HumanMessage`, `AIMessage`, and `ToolMessage`** objects to simulate a conversation and test `_truncate_message_history`.
 
-Here’s how to do it:
-
----
-
-### 🔍 Where to change
-
-The part of the code where messages are actually **prepared and sent into the graph** is here:
+Here’s a complete example:
 
 ```python
-def set_graph_chat_state(user_wwid: str, conversation_id: str):
-    message_history = graph_memory_utils.load_user_chat_history_by_id(
-        user_wwid=user_wwid, conversation_id=conversation_id, for_ui=False
-    )
-    ...
-    new_state = {
-        graph_memory_utils._COSMOSDB_MSG_MESSAGES_KEY: convert_to_messages(
-            message_history
-        ),
-        ...
-    }
-```
+from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 
-`convert_to_messages(message_history)` is converting the full history into `langchain_core.messages` format and injecting it into `_CHAT_GRAPH`.
+# Import your truncate function
+# from chat_graph_agent import _truncate_message_history
 
-That’s the choke point — you need to **truncate `message_history` before passing it in**.
+def test_truncate_message_history():
+    # Create a simulated conversation
+    message_history = [
+        HumanMessage(content="Hi"),
+        AIMessage(content="Hello! How can I help?"),
+        ToolMessage(content="Running tool 1"),
+        HumanMessage(content="Tell me about project X"),
+        AIMessage(content="Project X is in phase 2"),
+        ToolMessage(content="Tool 2 result"),
+        HumanMessage(content="Any updates on project Y?"),
+        AIMessage(content="Project Y is scheduled for Q4"),
+        HumanMessage(content="Thanks"),
+    ]
 
----
+    print("Original Messages:")
+    for i, m in enumerate(message_history):
+        print(f"{i}: {type(m).__name__} - {m.content}")
 
-### 🔧 How to change
+    # Truncate to last 4 human+AI messages
+    truncated = _truncate_message_history(message_history, max_messages=4)
 
-1. Add a utility function to filter and truncate only **HumanMessage** and **AIMessage** types:
+    print("\nTruncated Messages:")
+    for i, m in enumerate(truncated):
+        print(f"{i}: {type(m).__name__} - {m.content}")
 
-```python
-from langchain_core.messages import HumanMessage, AIMessage
 
-def _truncate_message_history(message_history, max_messages: int = 10):
-    """
-    Keep only the last `max_messages` human+AI messages.
-    Tool messages are excluded from the count but still kept if they fall inside.
-    """
-    human_ai_msgs = [m for m in message_history if isinstance(m, (HumanMessage, AIMessage))]
-    truncated_human_ai = human_ai_msgs[-max_messages:]  # last N human+AI
-    
-    # Collect tool/system messages that occur after the earliest kept human/AI
-    if truncated_human_ai:
-        cutoff_id = message_history.index(truncated_human_ai[0])
-        truncated = message_history[cutoff_id:]
-    else:
-        truncated = message_history
-    return truncated
-```
-
-2. Use this function in **`set_graph_chat_state`**:
-
-```python
-def set_graph_chat_state(user_wwid: str, conversation_id: str):
-    message_history = graph_memory_utils.load_user_chat_history_by_id(
-        user_wwid=user_wwid, conversation_id=conversation_id, for_ui=False
-    )
-
-    # Apply truncation (decide N here, e.g., 12)
-    message_history = _truncate_message_history(message_history, max_messages=12)
-
-    graph_state = graph_memory_utils.load_graph_state_by_convo_id(
-        convo_id=conversation_id
-    )
-    new_state = {
-        graph_memory_utils._COSMOSDB_MSG_MESSAGES_KEY: convert_to_messages(
-            message_history
-        ),
-        graph_memory_utils._COSMOSDB_MSG_USER_WWID_KEY: user_wwid,
-        graph_memory_utils._COSMOSDB_MSG_CONVO_ID_KEY: conversation_id,
-        _DIALOG_STATE_KEY: AssistantNames.primary_assistant.value,
-    }
-    for msg in new_state[graph_memory_utils._COSMOSDB_MSG_MESSAGES_KEY]:
-        del msg.additional_kwargs
-    global _CHAT_GRAPH
-    _CHAT_GRAPH = None
-    init_graph()
-    _CHAT_GRAPH.update_state(_DEFAULT_GRAPH_CONFIG, new_state)
+if __name__ == "__main__":
+    test_truncate_message_history()
 ```
 
 ---
 
-### ✅ What this gives you
+### ✅ What this does
 
-* **Context window control** → Only last `n` (say 12) Human/AI messages go into the LLM.
-* **Tools excluded from count** → ToolMessages/SystemMessages don’t eat into the window.
-* **Full history still saved** → `save_graph_chat_state()` still writes the entire conversation to Cosmos DB. Only truncation for LLM input, not storage.
+1. Original history contains **Human, AI, and Tool messages**.
+2. `_truncate_message_history` keeps only **last 4 Human/AI messages** but also preserves **Tool messages** that occur after the earliest kept Human/AI message.
+3. Prints messages **before and after truncation** so you can visually verify it works correctly.
 
 ---
 
-👉 Next step: Do you want `n` (the context window) to be configurable via environment variable / settings (so ops can adjust it without code changes), or hardcoded in `_truncate_message_history`?
+If you want, I can also **write a version using `pytest`** that asserts the truncated history contains the right messages and right count automatically.
+
+Do you want me to do that?
