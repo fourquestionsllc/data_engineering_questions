@@ -1,71 +1,76 @@
-Got it ✅ — you want a new function to fetch all **documents linked to a PSKU** (via both incoming and outgoing edges), and return them as a **CSV-formatted table** with the same formatting you already use for `search_nodes_by_fields` (for Documents).
+Perfect — since your new function `get_documents_for_psku` is defined in `query_project_hierarchy_utils`, and you want it to be callable by the **Project Information Assistant**, here’s **exactly** what to add and where 👇
 
-Here’s the function you can add:
+---
+
+### ✅ Step 1: Wrap your new function with `@tool`
+
+In the same file (where your other tools are defined), **after the existing tools**, add this:
 
 ```python
-def get_documents_for_psku(psku_id: str) -> str:
+@tool
+def search_graph_db_for_documents_by_psku(psku_id: str) -> str:
     """
-    Query all Document nodes associated with a given PSKU (both incoming and outgoing edges).
-    Return the results as a CSV-formatted string.
-
-    Args:
-        psku_id (str): The PSKU node identifier.
-
-    Returns:
-        str: CSV-formatted string with columns [FILE NAME, FILE TYPE, SOURCE, REVISION, VERSION].
+    Given a PSKU ID, return all connected Document nodes (both incoming and outgoing edges)
+    as a CSV-formatted string with columns:
+    [FILE NAME, FILE TYPE, SOURCE, REVISION, VERSION].
     """
-
-    query = """
-    g.V()
-     .hasLabel("PSKU")
-     .has("id", psku_id)
-     .both()
-     .hasLabel("Document")
-     .valueMap(true)
-    """
-
-    bindings = {"psku_id": psku_id}
-
-    query_results = (
-        gremlin_utils.query_gremlin(query=query, bindings=bindings).all().result()
-    )
-
-    docs_data = []
-    for record in query_results:
-        # Flatten attributes
-        node_details = {}
-        for k, v in record.items():
-            if isinstance(v, list) and len(v) == 1:
-                node_details[k] = v[0]
-            else:
-                node_details[k] = v
-
-        file_name = node_details.get("file_name")
-        doc_link = node_details.get("doc_link")
-        source = node_details.get("source_system")
-        revision = node_details.get("mdv_version")
-        version = node_details.get("mdv_doc_number")
-
-        # Detect file type
-        file_type = None
-        if file_name:
-            if file_name.lower().endswith(".pdf"):
-                file_type = "pdf"
-            elif file_name.lower().endswith(".zip"):
-                file_type = "zip"
-
-        docs_data.append({
-            "FILE NAME": f"[{file_name}]({doc_link})" if file_name and doc_link else file_name,
-            "FILE TYPE": file_type,
-            "SOURCE": source,
-            "REVISION": revision,
-            "VERSION": version,
-        })
-
-    df = pandas.DataFrame(docs_data, columns=["FILE NAME", "FILE TYPE", "SOURCE", "REVISION", "VERSION"])
-    return df.to_csv(index=False)
+    return query_project_hierarchy_utils.get_documents_for_psku(psku_id)
 ```
 
 ---
 
-Would you also like me to make this **generalizable** (e.g., `get_documents_for_node(node_type, node_id)`) so you could reuse it for **Projects** or other node types too, instead of just hardcoding for PSKU?
+### ✅ Step 2: Add it to the assistant’s tool list
+
+Find the existing list named `PROJECT_INFORMATION_ASSISTANT_TOOLS`:
+
+```python
+PROJECT_INFORMATION_ASSISTANT_TOOLS = [
+    search_graph_db_for_project_info,
+    search_graph_db_for_node_details,
+    search_graph_db_for_nodes_by_fields,
+    search_graph_db_for_projects_and_pskus_by_gtin,
+    CompleteOrEscalate,
+]
+```
+
+Add your new tool (`search_graph_db_for_documents_by_psku`) **before `CompleteOrEscalate`**, like this:
+
+```python
+PROJECT_INFORMATION_ASSISTANT_TOOLS = [
+    search_graph_db_for_project_info,
+    search_graph_db_for_node_details,
+    search_graph_db_for_nodes_by_fields,
+    search_graph_db_for_projects_and_pskus_by_gtin,
+    search_graph_db_for_documents_by_psku,  # 👈 new tool added here
+    CompleteOrEscalate,
+]
+```
+
+---
+
+### ✅ Step 3: (Optional but recommended) Mention it in the system prompt
+
+If you want the LLM to **automatically know** when to use it, update the `SYSTEM_PROMPT` section under “Other Available tools” by adding one line:
+
+```
+- search_graph_db_for_documents_by_psku: Use when the user provides a PSKU ID and requests to retrieve all associated Documents (labels, IFUs, etc.) for that PSKU.
+```
+
+---
+
+### ✅ Summary
+
+**You added:**
+
+1. One new `@tool` wrapper function calling your `query_project_hierarchy_utils.get_documents_for_psku`.
+2. One line in `PROJECT_INFORMATION_ASSISTANT_TOOLS` list.
+3. (Optional) One line in the system prompt description.
+
+---
+
+That’s it.
+Once done, your assistant will be able to handle user queries like:
+
+> “Show me all documents related to PSKU 12345”
+
+and it will automatically call `search_graph_db_for_documents_by_psku(psku_id="12345")`.
