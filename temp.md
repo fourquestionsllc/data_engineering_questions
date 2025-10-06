@@ -1,69 +1,63 @@
-Ah — that error is coming from **`ToolMessage` creation**. In `langchain_core.messages.ToolMessage`, the **`tool_call_id` field is required**, so you **cannot create a ToolMessage without it**.
-
-In your test code, we just did:
-
-```python
-ToolMessage(content="Running tool 1")
-```
-
-…which is missing the required `tool_call_id`.
+Perfect — here’s exactly what you need to **change and add** inside the `search_nodes_by_fields()` function.
 
 ---
 
-### ✅ Fix
+### ✅ Step 1: Replace the **return block** at the end of `search_nodes_by_fields()`
 
-Just add a dummy `tool_call_id` when creating test ToolMessages:
+Find this section:
 
 ```python
-ToolMessage(content="Running tool 1", tool_call_id="tool_1")
-ToolMessage(content="Tool 2 result", tool_call_id="tool_2")
+    return flattened
 ```
 
 ---
 
-### Updated Test Case
+### 🚀 Replace it with:
 
 ```python
-from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
+    if node_type == "Document":
+        # Extract relevant columns and format into a DataFrame
+        docs_data = []
+        for node in flattened:
+            file_name = node.get("file_name")
+            doc_link = node.get("doc_link")
+            source = node.get("source_system")
+            revision = node.get("mdv_version")
+            file_type = None
+            if file_name:
+                if file_name.lower().endswith(".pdf"):
+                    file_type = "pdf"
+                elif file_name.lower().endswith(".zip"):
+                    file_type = "zip"
 
-# from chat_graph_agent import _truncate_message_history
+            docs_data.append({
+                "FILE NAME": f"[{file_name}]({doc_link})" if file_name and doc_link else file_name,
+                "FILE TYPE": file_type,
+                "SOURCE": source,
+                "REVISION": revision,
+                "VERSION": node.get("mdv_doc_number"),
+            })
 
-def test_truncate_message_history():
-    # Create a simulated conversation
-    message_history = [
-        HumanMessage(content="Hi"),
-        AIMessage(content="Hello! How can I help?"),
-        ToolMessage(content="Running tool 1", tool_call_id="tool_1"),
-        HumanMessage(content="Tell me about project X"),
-        AIMessage(content="Project X is in phase 2"),
-        ToolMessage(content="Tool 2 result", tool_call_id="tool_2"),
-        HumanMessage(content="Any updates on project Y?"),
-        AIMessage(content="Project Y is scheduled for Q4"),
-        HumanMessage(content="Thanks"),
-    ]
+        df = pandas.DataFrame(docs_data, columns=["FILE NAME", "FILE TYPE", "SOURCE", "REVISION", "VERSION"])
+        return df.to_csv(index=False)
 
-    print("Original Messages:")
-    for i, m in enumerate(message_history):
-        print(f"{i}: {type(m).__name__} - {m.content}")
-
-    # Truncate to last 4 human+AI messages
-    truncated = _truncate_message_history(message_history, max_messages=4)
-
-    print("\nTruncated Messages:")
-    for i, m in enumerate(truncated):
-        print(f"{i}: {type(m).__name__} - {m.content}")
-
-
-if __name__ == "__main__":
-    test_truncate_message_history()
+    return flattened
 ```
 
 ---
 
-✅ Key point: **Every `ToolMessage` must have `tool_call_id`** or Pydantic will raise `ValidationError`.
+### ✅ Summary of what this change does
+
+* If the search is for `Document` nodes, it:
+
+  * Converts results into a DataFrame.
+  * Includes only the specified columns:
+    **FILE NAME (as link), FILE TYPE, SOURCE, REVISION, VERSION.**
+  * Returns the result as a **CSV-formatted string** (`to_csv(index=False)`).
+* Keeps the old behavior (`return flattened`) for all other node types.
 
 ---
 
-If you want, I can also **update `_truncate_message_history` to handle a mixed list safely**, so it won’t crash even if some messages are missing `tool_call_id` (useful for testing).
+### 🧩 You don’t need to modify any other part of the code.
 
-Do you want me to do that?
+Only this replacement at the end of `search_nodes_by_fields()` is required.
