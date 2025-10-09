@@ -1,58 +1,139 @@
-Here’s the modified version of your function — it now returns **all available fields** from the Gremlin query in CSV format, without restricting to the predefined column list.
+Got it 👍 — you have a **single-entity NER dataset** with the following structure:
+
+| text                                | start | end |
+| ----------------------------------- | ----- | --- |
+| "John works at Google."             | 0     | 4   |
+| "Alice joined Microsoft last year." | 0     | 5   |
+
+Let’s go step-by-step on how to **train a Named Entity Recognition (NER)** model (e.g., using **spaCy** or **Hugging Face Transformers**) from this data.
+
+---
+
+## 🧩 1. Prepare Your Data
+
+Convert your dataset into a format suitable for NER training.
+
+Here’s an example with `pandas`:
 
 ```python
-import pandas
+import pandas as pd
 
-def get_documents_for_psku(psku_id: str) -> str:
-    """
-    Query all Document nodes associated with a given PSKU (both incoming and outgoing edges).
-    Return all fields as a CSV-formatted string.
+# Example data
+data = [
+    {"text": "John works at Google.", "start": 0, "end": 4},
+    {"text": "Alice joined Microsoft last year.", "start": 0, "end": 5},
+]
 
-    Args:
-        psku_id (str): The PSKU node identifier.
-
-    Returns:
-        str: CSV-formatted string containing all available fields for Document nodes.
-    """
-
-    query = """
-    g.V()
-     .hasLabel("PSKU")
-     .has("id", psku_id)
-     .both()
-     .hasLabel("Document")
-     .valueMap(true)
-    """
-
-    bindings = {"psku_id": psku_id}
-
-    query_results = (
-        gremlin_utils.query_gremlin(query=query, bindings=bindings).all().result()
-    )
-
-    docs_data = []
-    for record in query_results:
-        # Flatten attributes
-        node_details = {}
-        for k, v in record.items():
-            if isinstance(v, list) and len(v) == 1:
-                node_details[k] = v[0]
-            else:
-                node_details[k] = v
-        docs_data.append(node_details)
-
-    # Create a DataFrame with all keys (columns)
-    df = pandas.DataFrame(docs_data)
-
-    # Return the entire dataframe as CSV
-    return df.to_csv(index=False)
+df = pd.DataFrame(data)
 ```
 
-✅ **What changed:**
+You’ll need to transform it into **spaCy’s training format**, i.e.:
 
-* Removed the restriction to specific columns (`["FILE NAME", "FILE TYPE", "SOURCE", "REVISION", "VERSION"]`).
-* Kept all available fields as-is from the Gremlin `valueMap(true)` result.
-* Still flattens one-element lists for readability.
-* Output remains a valid CSV string with **all node properties**.
+```python
+TRAIN_DATA = [
+    ("John works at Google.", {"entities": [(0, 4, "ENTITY")]}),
+    ("Alice joined Microsoft last year.", {"entities": [(0, 5, "ENTITY")]}),
+]
+```
 
-Would you like me to keep the clickable markdown links (`[file_name](doc_link)`) for `file_name` + `doc_link` pairs, or remove those too for a clean raw CSV?
+---
+
+## 🧠 2. Training with spaCy
+
+### Install spaCy
+
+```bash
+pip install spacy
+```
+
+### Initialize a blank model
+
+```python
+import spacy
+from spacy.training import Example
+
+# Create blank model (English)
+nlp = spacy.blank("en")
+
+# Add NER pipeline
+ner = nlp.add_pipe("ner")
+
+# Define label
+ner.add_label("ENTITY")
+```
+
+---
+
+### Prepare Training Data
+
+```python
+train_data = [
+    ("John works at Google.", {"entities": [(0, 4, "ENTITY")]}),
+    ("Alice joined Microsoft last year.", {"entities": [(0, 5, "ENTITY")]}),
+]
+```
+
+---
+
+### Train the Model
+
+```python
+from tqdm import trange
+
+optimizer = nlp.begin_training()
+
+for epoch in trange(30):
+    losses = {}
+    for text, annotations in train_data:
+        example = Example.from_dict(nlp.make_doc(text), annotations)
+        nlp.update([example], sgd=optimizer, losses=losses)
+    print(losses)
+```
+
+---
+
+### Save the Model
+
+```python
+nlp.to_disk("ner_model")
+```
+
+---
+
+### Test the Model
+
+```python
+nlp2 = spacy.load("ner_model")
+doc = nlp2("John works at Google.")
+print([(ent.text, ent.label_) for ent in doc.ents])
+```
+
+Expected output:
+
+```
+[('John', 'ENTITY')]
+```
+
+---
+
+## ⚡ Option 2: Training with Hugging Face Transformers
+
+If you want a **more powerful model** (e.g., BERT-based), we can format your dataset for the `transformers` library (using `datasets` + `Trainer`).
+
+You’ll need:
+
+```bash
+pip install transformers datasets seqeval
+```
+
+Then you can:
+
+1. Convert your dataset to token-level labels.
+2. Fine-tune a pretrained model (like `bert-base-cased`) for token classification.
+
+This approach is a bit more complex but gives much better results for real-world tasks.
+
+---
+
+Would you like me to show you the **Hugging Face version** (with code for token alignment and fine-tuning)?
+It’s more powerful but requires a bit more setup.
