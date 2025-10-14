@@ -1,33 +1,31 @@
-Here’s the **Gremlin query** to search for nodes whose `node_type` **contains** the word `"Approval"` (i.e., a fuzzy/partial match like SQL’s `%Approval%`):
+Here’s a **Gremlin query** to list all **unique `node_type` values** in your graph:
 
 ```groovy
 g.V().
-  hasLabel("Node").          // Optional — remove if your graph has multiple labels
-  has("node_type", textRegex("(?i).*Approval.*")). // case-insensitive partial match
-  valueMap(true)
+  values("node_type").
+  dedup().
+  order().
+  toList()
 ```
 
-### Explanation:
+### 🧠 Explanation:
 
-* `has("node_type", textRegex("(?i).*Approval.*"))`:
-
-  * Uses a **regular expression** for partial match (`.*Approval.*` = contains “Approval”).
-  * `(?i)` makes it **case-insensitive**.
-* `valueMap(true)` returns **all properties**, including the ID and label.
-
-If you’re using **Azure Cosmos DB Gremlin API**, the same query works — just note that:
-
-* Cosmos supports **`textRegex()`** for string property regex filters.
-* You can omit the label if you don’t have a specific vertex label.
+* `values("node_type")` → extracts the value of the `node_type` property from each vertex.
+* `dedup()` → removes duplicates (returns only unique values).
+* `order()` → sorts the results alphabetically.
+* `toList()` → materializes the results as a list (useful when running the query in most Gremlin clients).
 
 ---
 
-✅ **Cosmos DB Compatible Example:**
+✅ **Azure Cosmos DB compatible version:**
 
 ```groovy
 g.V().
-  has("node_type", textRegex("(?i).*Approval.*")).
-  valueMap(true)
+  values("node_type").
+  dedup().
+  order()
 ```
 
-Would you like me to modify this query to **return the result in JSON format** (e.g., for API use or Python client integration)?
+(Cosmos automatically returns the list format when queried through SDKs or Data Explorer.)
+
+Would you like me to modify this to also **count how many nodes exist per `node_type`** (i.e., return a frequency table)?
