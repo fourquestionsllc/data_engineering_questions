@@ -1,3 +1,7 @@
 g.V().
-  hasId(within(["123", "456", "789"])).
-  drop()
+  has("node_type", "Project").
+  properties().
+  key().
+  dedup().
+  order().
+  toList()
