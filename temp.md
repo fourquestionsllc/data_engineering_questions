@@ -1,94 +1,87 @@
-Got it ✅ — you want to:
-
-* Run something like `b = query_engine.documents_content_entity_extraction(b)` where both `a` and `b` are pandas DataFrames.
-* Show a **progress bar** in Jupyter Notebook.
-* **Disable INFO-level log messages** during the process.
-
-Here’s how you can do it cleanly 👇
+In Jupyter notebooks, you can add a **progress bar** to a `DataFrame.apply()` operation using `tqdm`.
+Here’s the clean and recommended way 👇
 
 ---
 
-### ✅ **Option 1: Wrap the operation in a progress bar loop**
+### ✅ **Option 1: Using `tqdm.pandas()` (Easiest Way)**
 
-If `query_engine.documents_content_entity_extraction()` processes rows of `b`, you can iterate row by row and show progress:
+`tqdm` integrates directly with pandas.
 
 ```python
 from tqdm.notebook import tqdm
-import logging
+import pandas as pd
 
-# Disable INFO logs
-logging.getLogger().setLevel(logging.WARNING)
+# Enable tqdm for pandas
+tqdm.pandas()
+
+# Example DataFrame
+df = pd.DataFrame({'x': range(10)})
+
+# Define your function
+def square(x):
+    return x ** 2
 
 # Apply with progress bar
+df['y'] = df['x'].progress_apply(square)
+```
+
+🟢 Output:
+`tqdm` will show a nice progress bar in your notebook that updates as `apply()` runs.
+
+---
+
+### ✅ **Option 2: Manual loop with tqdm**
+
+If you’re doing something more complex (e.g., applying across rows, or combining multiple columns), you can manually loop with `tqdm`:
+
+```python
+from tqdm.notebook import tqdm
+import pandas as pd
+
+df = pd.DataFrame({'a': range(5), 'b': range(5, 10)})
+
 results = []
-for _, row in tqdm(b.iterrows(), total=len(b), desc="Extracting entities"):
-    result = query_engine.documents_content_entity_extraction(row)
-    results.append(result)
+for _, row in tqdm(df.iterrows(), total=len(df), desc="Processing rows"):
+    results.append(row['a'] + row['b'])
 
-b = pd.DataFrame(results)
+df['sum'] = results
 ```
+
+This gives you full control over progress display, retries, batching, etc.
 
 ---
 
-### ✅ **Option 2: If the function processes the whole DataFrame once**
+### ✅ **Option 3: Parallel apply with progress (for large datasets)**
 
-If your `query_engine.documents_content_entity_extraction(b)` runs once on the full DataFrame (not per-row),
-you can use `tqdm` just for **visual feedback** during long processing:
+You can use `swifter` for parallelism **and** progress bars:
+
+```bash
+pip install swifter
+```
+
+Then:
 
 ```python
-from tqdm.notebook import tqdm
-import time
-import logging
+import swifter
+import pandas as pd
 
-# Disable INFO logs globally
-logging.getLogger().setLevel(logging.WARNING)
+df = pd.DataFrame({'x': range(10000)})
 
-# Show pseudo progress while waiting
-with tqdm(total=100, desc="Processing", bar_format="{l_bar}{bar} [ time left: {remaining} ]") as pbar:
-    for i in range(10):
-        time.sleep(0.1)  # simulate progress
-        pbar.update(10)
-    
-b = query_engine.documents_content_entity_extraction(b)
+df['y'] = df['x'].swifter.progress_bar(True).apply(lambda x: x ** 2)
 ```
 
-This gives a smooth visual progress even if the function itself is a single call.
+🧠 `swifter` automatically parallelizes your apply across cores and shows progress.
 
 ---
 
-### ✅ **Option 3: Patch tqdm inside the query_engine**
+### TL;DR
 
-If you can modify or wrap `query_engine.documents_content_entity_extraction`, you can decorate it like this:
-
-```python
-from tqdm.notebook import tqdm
-import logging
-
-logging.getLogger().setLevel(logging.WARNING)
-
-def extract_with_progress(df):
-    results = []
-    for _, row in tqdm(df.iterrows(), total=len(df), desc="Extracting entities"):
-        results.append(query_engine.documents_content_entity_extraction(row))
-    return pd.DataFrame(results)
-
-b = extract_with_progress(b)
-```
+| Method           | Library | Best for                        |
+| ---------------- | ------- | ------------------------------- |
+| `tqdm.pandas()`  | tqdm    | Simple apply functions          |
+| Manual tqdm loop | tqdm    | Complex row-wise operations     |
+| `swifter`        | swifter | Large datasets with parallelism |
 
 ---
 
-### ✅ Bonus: if `query_engine` uses Python’s `logging` module internally
-
-You can disable its own logger too:
-
-```python
-import logging
-
-logging.getLogger('query_engine').setLevel(logging.ERROR)
-logging.getLogger().setLevel(logging.ERROR)
-```
-
----
-
-Would you like me to detect automatically whether `documents_content_entity_extraction` supports batch (whole DataFrame) or row-wise processing and wrap it accordingly?
-I can give you a smart wrapper that auto-selects the right progress style.
+Would you like me to show a version that supports **apply across rows (`axis=1`)** with a tqdm progress bar too?
