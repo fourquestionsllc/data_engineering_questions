@@ -1,129 +1,58 @@
-Got it ✅ — you want to modify `get_project_attributes_to_correct()` so that:
+Here’s how you can **add the `get_project_attributes_to_correct` function as a LangChain tool** in your assistant file — so it can be called like the other graph tools.
 
-1. It **first checks if the project is approved** using the existing `is_project_approved()` helper. If not approved → immediately return `None`.
-2. It returns a **simplified table** with the following columns:
+Add the following code snippet **after** the existing tools (e.g., right after `check_if_project_is_approved` if it exists, or near `search_graph_db_for_project_info`) and **make sure to import pandas** if not already.
 
-   ```
-   PSKU | Attribute Category | Attribute Name | Original Value | Final Value
-   ```
+---
 
-   * `Attribute Category` should be derived from the attribute name prefix or index if available (e.g., `verified_attr_index` or from the name).
-   * `Original Value` comes from `orig_attr_value`
-   * `Final Value` comes from `verified_attr_value`
-
-Here’s the updated function implementation:
+### ✅ Code Addition
 
 ```python
-def get_project_attributes_to_correct(project_id: str) -> pandas.DataFrame:
+@tool
+def get_project_attributes_to_correct_tool(project_id: str) -> str:
     """
-    Identify all updated attributes and their original values for a given approved Project ID.
+    Retrieve all updated attributes and their original values for an approved Project.
 
-    Only runs if the Project is approved (has associated ProjectApproval node).
-
-    Traverses:
-    Project -> PSKU -> VerifiedDocAttribute (where overwritten_by_user == true)
-             -> FromOrigAttr -> DocAttribute
+    This tool uses query_project_hierarchy_utils.get_project_attributes_to_correct(project_id)
+    to identify VerifiedDocAttributes that were overwritten by users and their original values.
 
     Args:
-        project_id (str): The Project node ID.
+        project_id (str): The Project node identifier.
 
     Returns:
-        pandas.DataFrame: DataFrame with columns [PSKU, Attribute Category, Attribute Name, Original Value, Final Value]
-                          or None if the project is not approved.
+        str: CSV-formatted string containing PSKU, Attribute Category, Attribute Name,
+             Original Value, and Final Value. Returns a message if project not approved
+             or no attributes to correct.
     """
-    # --- 1️⃣ Check approval status ---
-    if not is_project_approved(project_id):
-        return None
+    df = query_project_hierarchy_utils.get_project_attributes_to_correct(project_id)
 
-    # --- 2️⃣ Run Gremlin query ---
-    query = """
-    g.V()
-     .has("label", "Project")
-     .has("id", project_id)
-     .as("project")
-     .out()
-     .has("label", "PSKU")
-     .as("psku")
-     .out()
-     .has("label", "VerifiedDocAttribute")
-     .where(__.has("overwritten_by_user", true))
-     .as("verified_attr")
-     .out("FromOrigAttr")
-     .has("label", "DocAttribute")
-     .as("orig_attr")
-     .select("psku", "verified_attr", "orig_attr")
-     .by(valueMap(true))
-    """
+    if df is None:
+        return f"Project {project_id} is not approved or has no ProjectApproval node."
 
-    bindings = {"project_id": project_id}
-    query_results = (
-        gremlin_utils.query_gremlin(query=query, bindings=bindings).all().result()
-    )
+    if df.empty:
+        return f"No updated attributes found for Project {project_id}."
 
-    if not query_results:
-        return pandas.DataFrame(
-            columns=["PSKU", "Attribute Category", "Attribute Name", "Original Value", "Final Value"]
-        )
-
-    # --- 3️⃣ Flatten and extract relevant fields ---
-    rows = []
-    for r in query_results:
-        # Flatten PSKU info
-        psku_data = r.get("psku", {})
-        verified_attr = r.get("verified_attr", {})
-        orig_attr = r.get("orig_attr", {})
-
-        def flatten(d):
-            return {
-                k: v[0] if isinstance(v, list) and len(v) == 1 else v
-                for k, v in d.items()
-            }
-
-        psku_flat = flatten(psku_data)
-        verified_flat = flatten(verified_attr)
-        orig_flat = flatten(orig_attr)
-
-        # Extract attribute category — use verified_attr_index if exists
-        attr_category = verified_flat.get("index") or verified_flat.get("verified_attr_index") or "N/A"
-
-        # Extract attribute name/value
-        attr_name = (
-            verified_flat.get("name")
-            or verified_flat.get("verified_attr_name")
-            or orig_flat.get("name")
-            or orig_flat.get("orig_attr_name")
-        )
-        original_value = orig_flat.get("value") or orig_flat.get("orig_attr_value", "")
-        final_value = verified_flat.get("value") or verified_flat.get("verified_attr_value", "")
-
-        rows.append(
-            {
-                "PSKU": psku_flat.get("id") or psku_flat.get("pdr_part_number"),
-                "Attribute Category": attr_category,
-                "Attribute Name": attr_name,
-                "Original Value": original_value,
-                "Final Value": final_value,
-            }
-        )
-
-    # --- 4️⃣ Return clean DataFrame ---
-    df = pandas.DataFrame(
-        rows,
-        columns=["PSKU", "Attribute Category", "Attribute Name", "Original Value", "Final Value"],
-    )
-    return df
+    return df.to_csv(index=False)
 ```
 
 ---
 
-### ✅ Summary of Changes
+### ✅ Make sure imports are present at the top:
 
-* **Approval check:** Added at the start → if not approved, returns `None`.
-* **Simplified output:** Only the required 5 columns.
-* **Flattening logic simplified:** Clean extraction of nested fields.
-* **Handles missing values gracefully:** Defaults to empty string or “N/A”.
-* **Compatible with existing Gremlin query structure.**
+If not already imported, add:
+
+```python
+import pandas
+from skybound_knowledge_graph import query_project_hierarchy_utils
+```
 
 ---
 
-Would you like me to also include an optional flag (e.g., `include_unapproved=False`) so you can toggle whether to skip the approval check or not? That can help with debugging and testing.
+### ✅ Tool behavior
+
+* Checks if the project is approved via `is_project_approved`.
+* Returns CSV-formatted results (for readability in chat or export).
+* Gracefully handles cases where no updates or approval exist.
+
+---
+
+Would you like me to also update the `SYSTEM_PROMPT` section to mention this new tool (so the assistant can autonomously choose it when appropriate)?
