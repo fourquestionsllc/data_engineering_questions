@@ -1,103 +1,59 @@
-Here’s the updated version of your function — it now returns **all fields** for `Document` nodes in **CSV format**, preserving the original column names from the graph instead of only using `["FILE NAME", "FILE TYPE", "SOURCE", "REVISION", "VERSION"]`.
+Excellent — yes, you should update the **`SYSTEM_PROMPT`** (or whichever constant defines your assistant’s reasoning context, often something like `ASSISTANT_SYSTEM_PROMPT` or `AGENT_DESCRIPTION`) so the LLM knows that this tool exists, when to use it, and what it does.
+
+Here’s how you can **append the description for the new tool** inside your existing system prompt.
+
+---
+
+### ✅ Example System Prompt Addition
+
+Locate the section of your prompt where existing tools are described — for example:
 
 ```python
-import pandas
+SYSTEM_PROMPT = """
+You are an intelligent assistant that uses graph database tools to answer user questions.
 
-def search_nodes_by_fields(
-    node_type: str,
-    search_params: dict,
-    exact_match: bool = False,
-) -> str:
-    """
-    Query the graph DB for nodes of a given type, matching on multiple fields.
-
-    Supports exact and partial ("contains") matching.
-
-    Args:
-        node_type (str): The node type (Document or Project).
-        search_params (dict): Field-value mapping to search by.
-                              Example: {"id": "123", "doc_title": "design"}
-        exact_match (bool): Whether to use exact matching (==) or partial matching (contains).
-
-    Returns:
-        str: For Document nodes, CSV-formatted string containing all fields.
-             For other node types, list of flattened node dictionaries.
-    """
-
-    # Allowed searchable fields
-    NODE_SEARCHABLE_FIELDS = {
-        "Document": ["id", "doc_title", "file_name"],
-        "Project": ["id", "title"],
-    }
-
-    if node_type not in NODE_SEARCHABLE_FIELDS:
-        raise ValueError(f"Unsupported node_type: {node_type}")
-
-    allowed_fields = NODE_SEARCHABLE_FIELDS[node_type]
-    invalid_fields = [f for f in search_params if f not in allowed_fields]
-    if invalid_fields:
-        raise ValueError(
-            f"Invalid fields {invalid_fields} for node_type {node_type}. "
-            f"Allowed fields: {allowed_fields}"
-        )
-
-    # Build Gremlin traversal filters
-    filter_clauses = []
-    for field, value in search_params.items():
-        if exact_match:
-            clause = f'.has("{field}", {field})'
-        else:
-            clause = f'.has("{field}", TextP.containing({field}))'
-        filter_clauses.append(clause)
-
-    filters_str = "\n".join(filter_clauses)
-
-    query = f"""
-    g.V()
-     .hasLabel(node_type)
-     {filters_str}
-     .valueMap(true)
-    """
-
-    bindings = {"node_type": node_type}
-    bindings.update(search_params)
-
-    query_results = (
-        gremlin_utils.query_gremlin(query=query, bindings=bindings).all().result()
-    )
-
-    # Flatten attributes
-    flattened = []
-    for r in query_results:
-        node_details = {}
-        for k, v in r.items():
-            if isinstance(v, list) and len(v) == 1:
-                node_details[k] = v[0]
-            else:
-                node_details[k] = v
-
-        # If Project, attach AssociatedPSKUTable
-        if node_type == "Project" and "id" in node_details:
-            node_details["AssociatedPSKUTable"] = get_project_pskus_with_gtin_salesorg(
-                project_id=node_details["id"]
-            )
-
-        flattened.append(node_details)
-
-    # For Document nodes — return all available fields as CSV
-    if node_type == "Document":
-        df = pandas.DataFrame(flattened)
-        return df.to_csv(index=False)
-
-    # For non-Document nodes — return list of dicts
-    return flattened
+Available tools include:
+- search_nodes_by_fields_tool: searches for nodes in the graph matching certain field criteria.
+- check_if_project_is_approved_tool: checks if a project has been approved.
+...
 ```
 
-### ✅ Key Changes:
+Now **add this entry for the new tool**:
 
-* Returns **all available fields** for `Document` nodes (no custom column filtering).
-* Uses `pandas.DataFrame(flattened)` directly — columns are inferred dynamically.
-* Keeps `Project` logic intact (still returns Python list with associated PSKU table).
-* Output for `Document` nodes is now **a CSV-formatted string** with all fields.
+```python
+- get_project_attributes_to_correct_tool: Given a Project ID, retrieves all updated (overwritten) attributes and their original values for an approved project. 
+  Returns a CSV-formatted summary of PSKU, Attribute Category, Attribute Name, Original Value, and Final Value. 
+  If the project is not approved or has no updated attributes, returns a message instead.
+```
 
-Would you like to keep clickable markdown `[file_name](doc_link)` formatting for CSV output, or prefer clean raw values (good for data exports)?
+---
+
+### ✅ Full example snippet
+
+```python
+SYSTEM_PROMPT = """
+You are an intelligent assistant that uses graph database tools to query and summarize data about Projects, Documents, PSKUs, and their relationships.
+
+Available tools include:
+- search_nodes_by_fields_tool: searches for nodes in the graph matching specific fields.
+- check_if_project_is_approved_tool: determines whether a project node has been approved.
+- get_project_attributes_to_correct_tool: Given a Project ID, retrieves all updated (overwritten) attributes and their original values for an approved project. 
+  Returns a CSV-formatted summary of PSKU, Attribute Category, Attribute Name, Original Value, and Final Value. 
+  If the project is not approved or has no updated attributes, returns a message instead.
+
+You should select the appropriate tool based on the user query.
+"""
+```
+
+---
+
+### ✅ Why this matters
+
+This gives the LLM:
+
+* A **semantic clue** (“updated attributes”, “original values”, “approved project”) to trigger this tool when users ask *“which attributes were corrected or modified in this project?”*
+* Enough context to know the **expected format** of the return (CSV text).
+
+---
+
+Would you like me to make this more **task-oriented** (e.g., phrased so the LLM autonomously decides *when* to call it vs. *when* to summarize results*) — like a production prompt for LangGraph agents?
