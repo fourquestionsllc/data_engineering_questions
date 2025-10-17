@@ -1,60 +1,91 @@
-Got it ✅ — you want to **undo the last commit** completely **both locally and remotely**, so that it’s as if that commit never happened.
+Perfect — you have a **Streamlit app** in `ui/app.py`, and it imports Python modules from your **current project directory** (e.g., sibling `.py` files).
 
-Here’s how to do it safely step-by-step 👇
+Here’s exactly how to run it depending on your project layout 👇
 
 ---
 
-## 🧨 Step 1. Reset your local branch to the previous commit
+## 🧩 Example project structure
 
-```bash
-git reset --hard HEAD~1
+```
+my_project/
+│
+├── data_utils.py
+├── model.py
+│
+└── ui/
+    └── app.py
 ```
 
-* This **removes** the last commit from your local branch
-* And **discards all changes** made in that commit
+And inside `app.py` you might have:
 
-⚠️ Make sure you **really don’t need** the changes — this is destructive.
-
----
-
-## 🌐 Step 2. Force push the updated branch to remote
-
-```bash
-git push origin HEAD --force
+```python
+import streamlit as st
+from data_utils import load_data
+from model import predict
 ```
 
-or equivalently:
+---
+
+## ✅ Option 1. Run from the **project root** (recommended)
+
+Navigate to your project’s root folder (where `ui/` lives) and run:
 
 ```bash
-git push -f
+streamlit run ui/app.py
 ```
 
-This **overwrites the remote branch** to match your local branch — effectively removing the last commit from both local and remote.
+💡 Why:
+This ensures that Python adds the **project root** to `sys.path`, so imports like `from data_utils import ...` work correctly.
 
 ---
 
-## ⚠️ Important notes
+## ⚙️ Option 2. Modify `sys.path` manually (if you must run inside `ui/`)
 
-* This **rewrites history**, so only do it if:
+If you’re already in the `ui` directory and imports fail, you can add the parent directory to Python’s import path at runtime:
 
-  * You’re the only one working on the branch **or**
-  * Your team agrees to rewrite the branch history
+```python
+# ui/app.py
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-* If others have already pulled the old commit, they’ll need to **reset or re-clone** to avoid conflicts.
+import streamlit as st
+from data_utils import load_data
+from model import predict
+```
 
----
-
-## 🧱 Safer alternative (if you want to keep history clean)
-
-If the commit is already shared and you want to **undo its effect** without rewriting history:
+Then you can run:
 
 ```bash
-git revert HEAD
-git push
+streamlit run app.py
 ```
-
-That creates a **new commit** that undoes the last one — safe for shared branches.
 
 ---
 
-Would you like me to show you how to **undo a specific commit (not just the last one)** in both local and remote too?
+## 🧭 Option 3. Use a package-style import (if your project is a package)
+
+If you’ve made `my_project` a package (i.e., it has an `__init__.py`), you can import relatively:
+
+```python
+from ..data_utils import load_data
+```
+
+and run Streamlit with the `-m` flag from the root:
+
+```bash
+python -m streamlit run ui/app.py
+```
+
+---
+
+## ✅ Summary
+
+| Situation                      | Command                             | Works With          |
+| ------------------------------ | ----------------------------------- | ------------------- |
+| You’re in project root         | `streamlit run ui/app.py`           | Most common         |
+| You’re in `ui/` folder         | Add `sys.path` line                 | Quick fix           |
+| You’ve structured as a package | `python -m streamlit run ui/app.py` | Clean modular setup |
+
+---
+
+Do you want to show me your folder structure (like a `tree` output)? I can tell you exactly how your imports should be written and where to run from.
