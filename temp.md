@@ -1,98 +1,53 @@
-Here’s a Python script that reads your `test_cases.xlsx` file and converts it into the desired JSON format, including the `gremlin_query_to_prepare_test_data` field and properly structuring the alternating human/AI messages:
-
-```python
 import pandas as pd
 import json
 
-def convert_excel_to_json(excel_path: str, output_json_path: str):
-    # Read Excel file
-    df = pd.read_excel(excel_path)
+# Load Excel file
+df = pd.read_excel("test_cases.xlsx")
+
+# Drop completely empty rows (if any)
+df = df.dropna(how="all")
+
+# Prepare final JSON structure
+records = []
+
+# Iterate through rows
+for _, row in df.iterrows():
+    jira = str(row.get("jira", "")).strip()
+    description = str(row.get("description", "")).strip()
+    gremlin_query = str(row.get("gremlin_query_to_prepare_test_data", "")).strip()
     
-    # Fill NaN values with empty strings to avoid issues
-    df = df.fillna("")
-    
-    # Group by jira and description (since multiple rows can share same Jira)
-    grouped = df.groupby(["jira", "description", "gremlin_query_to_prepare_test_data"])
-    
-    result = []
-    
-    for (jira, description, gremlin_query), group in grouped:
-        conversation = []
+    # Build the conversation sequence dynamically
+    conversation = []
+    for i in range(1, 10):  # Up to 10 message pairs just in case
+        human_col = f"message_human_{i}"
+        ai_col = f"message_ai_{i}"
         
-        # Iterate through each row and collect message pairs
-        for _, row in group.iterrows():
-            # For each human/AI pair, add entries to the conversation list if non-empty
-            if row.get("message_human_1"):
-                conversation.append({
-                    "message_type": "human",
-                    "content": str(row["message_human_1"]).strip()
-                })
-            if row.get("message_ai_1"):
-                conversation.append({
-                    "message_type": "ai",
-                    "content": str(row["message_ai_1"]).strip()
-                })
-            if row.get("message_human_2"):
-                conversation.append({
-                    "message_type": "human",
-                    "content": str(row["message_human_2"]).strip()
-                })
-            if row.get("message_ai_2"):
-                conversation.append({
-                    "message_type": "ai",
-                    "content": str(row["message_ai_2"]).strip()
-                })
+        human_msg = row.get(human_col)
+        ai_msg = row.get(ai_col)
         
-        result.append({
-            "jira": jira,
-            "description": description,
-            "gremlin_query_to_prepare_test_data": gremlin_query,
-            "conversation": conversation
-        })
-    
-    # Write to JSON file with pretty formatting
-    with open(output_json_path, "w", encoding="utf-8") as f:
-        json.dump(result, f, indent=4, ensure_ascii=False)
-    
-    print(f"✅ JSON saved to {output_json_path}")
-
-
-# Example usage
-if __name__ == "__main__":
-    convert_excel_to_json("test_cases.xlsx", "test_cases.json")
-```
-
-### ✅ Output Format Example
-
-Given your input, the output JSON will look like this:
-
-```json
-[
-    {
-        "jira": "JHWP-2106",
-        "description": "add fuzzy matching for fields and handle multiple matches",
-        "gremlin_query_to_prepare_test_data": "",
-        "conversation": [
-            {
+        if pd.notna(human_msg) and str(human_msg).strip():
+            conversation.append({
                 "message_type": "human",
-                "content": "Bring me the document details of a document with file name containing \"L-1285-01-S-23\""
-            },
-            {
+                "content": str(human_msg).strip()
+            })
+        if pd.notna(ai_msg) and str(ai_msg).strip():
+            conversation.append({
                 "message_type": "ai",
-                "content": "Here are the details of the document with a file name containing \"L-1285-01-S-23\":\n\nID: L-1285-01-S-23-A ..."
-            },
-            {
-                "message_type": "human",
-                "content": "Bring me the details of a document with file name \"L-1285-01-S-23 - Label.pdf\" and title \" L-1285-01-S-23 REV A\"."
-            },
-            {
-                "message_type": "ai",
-                "content": "Here are the details of the document with the specified file name \"L-1285-01-S-23 - Label.pdf\" and title ..."
-            }
-        ]
-    },
-    ...
-]
-```
+                "content": str(ai_msg).strip()
+            })
+    
+    # Create record for each row
+    record = {
+        "jira": jira,
+        "description": description,
+        "gremlin_query_to_prepare_test_data": gremlin_query,
+        "conversation": conversation
+    }
+    
+    records.append(record)
 
-Would you like me to modify it so that multiple JIRAs (e.g., same ticket but different scenarios) get merged under a single `jira` entry with combined conversations?
+# Save to JSON file
+with open("test_cases.json", "w", encoding="utf-8") as f:
+    json.dump(records, f, indent=4, ensure_ascii=False)
+
+print("✅ Conversion complete! Output saved to test_cases.json")
