@@ -1,53 +1,73 @@
+Here’s a clean, production-ready Python script that will:
+✅ Load all PDF files from a given folder
+✅ Extract **text from each page**
+✅ Build a DataFrame with columns: `file_name`, `page_number`, `text_content`
+✅ Save the combined data to a `.parquet` file
+
+---
+
+### 🧠 Requirements
+
+Make sure to install the following packages:
+
+```bash
+pip install PyPDF2 pandas pyarrow
+```
+
+---
+
+### 📄 Python Code
+
+```python
+import os
 import pandas as pd
-import json
+from PyPDF2 import PdfReader
 
-# Load Excel file
-df = pd.read_excel("test_cases.xlsx")
+# === CONFIGURATION ===
+folder_path = r"C:\path\to\your\pdf_folder"   # <-- change this to your folder path
+output_file = r"C:\path\to\output\pdf_texts.parquet"
 
-# Drop completely empty rows (if any)
-df = df.dropna(how="all")
-
-# Prepare final JSON structure
+# === PROCESSING ===
 records = []
 
-# Iterate through rows
-for _, row in df.iterrows():
-    jira = str(row.get("jira", "")).strip()
-    description = str(row.get("description", "")).strip()
-    gremlin_query = str(row.get("gremlin_query_to_prepare_test_data", "")).strip()
-    
-    # Build the conversation sequence dynamically
-    conversation = []
-    for i in range(1, 10):  # Up to 10 message pairs just in case
-        human_col = f"message_human_{i}"
-        ai_col = f"message_ai_{i}"
-        
-        human_msg = row.get(human_col)
-        ai_msg = row.get(ai_col)
-        
-        if pd.notna(human_msg) and str(human_msg).strip():
-            conversation.append({
-                "message_type": "human",
-                "content": str(human_msg).strip()
-            })
-        if pd.notna(ai_msg) and str(ai_msg).strip():
-            conversation.append({
-                "message_type": "ai",
-                "content": str(ai_msg).strip()
-            })
-    
-    # Create record for each row
-    record = {
-        "jira": jira,
-        "description": description,
-        "gremlin_query_to_prepare_test_data": gremlin_query,
-        "conversation": conversation
-    }
-    
-    records.append(record)
+for file_name in os.listdir(folder_path):
+    if file_name.lower().endswith(".pdf"):
+        pdf_path = os.path.join(folder_path, file_name)
+        try:
+            reader = PdfReader(pdf_path)
+            for page_num, page in enumerate(reader.pages, start=1):
+                text = page.extract_text() or ""
+                records.append({
+                    "file_name": file_name,
+                    "page_number": page_num,
+                    "text_content": text.strip()
+                })
+        except Exception as e:
+            print(f"Error reading {file_name}: {e}")
 
-# Save to JSON file
-with open("test_cases.json", "w", encoding="utf-8") as f:
-    json.dump(records, f, indent=4, ensure_ascii=False)
+# === SAVE TO PARQUET ===
+df = pd.DataFrame(records)
+df.to_parquet(output_file, engine="pyarrow", index=False)
 
-print("✅ Conversion complete! Output saved to test_cases.json")
+print(f"✅ Done! Extracted {len(df)} pages from {len(os.listdir(folder_path))} PDFs.")
+print(f"Saved to: {output_file}")
+```
+
+---
+
+### 💡 Notes
+
+* If you want to include **subfolders**, replace the loop with:
+
+  ```python
+  for root, _, files in os.walk(folder_path):
+      for file_name in files:
+          ...
+  ```
+* You can later load your `.parquet` file easily:
+
+  ```python
+  df = pd.read_parquet(r"C:\path\to\output\pdf_texts.parquet")
+  ```
+
+Would you like me to modify it to use **multithreading** for faster extraction (useful if PDFs are large)?
