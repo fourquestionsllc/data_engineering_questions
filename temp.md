@@ -1,73 +1,66 @@
-Here’s a clean, production-ready Python script that will:
-✅ Load all PDF files from a given folder
-✅ Extract **text from each page**
-✅ Build a DataFrame with columns: `file_name`, `page_number`, `text_content`
-✅ Save the combined data to a `.parquet` file
+Perfect — you only need to make **two small but clear edits**:
 
 ---
 
-### 🧠 Requirements
+### ✅ 1️⃣ **Update `SYSTEM_PROMPT`**
 
-Make sure to install the following packages:
-
-```bash
-pip install PyPDF2 pandas pyarrow
-```
-
----
-
-### 📄 Python Code
+Add this instruction so the LLM always formats document results as tables:
 
 ```python
-import os
-import pandas as pd
-from PyPDF2 import PdfReader
+SYSTEM_PROMPT = """
+...
+When returning document-related results (e.g., file names, file types, sources, revisions, versions), 
+always present them in a clean table format with appropriate column headers, 
+not as a list or plain text.
+...
+"""
+```
 
-# === CONFIGURATION ===
-folder_path = r"C:\path\to\your\pdf_folder"   # <-- change this to your folder path
-output_file = r"C:\path\to\output\pdf_texts.parquet"
+📍You can insert that new paragraph right before **“Other Available tools:”** in the prompt.
 
-# === PROCESSING ===
-records = []
+---
 
-for file_name in os.listdir(folder_path):
-    if file_name.lower().endswith(".pdf"):
-        pdf_path = os.path.join(folder_path, file_name)
-        try:
-            reader = PdfReader(pdf_path)
-            for page_num, page in enumerate(reader.pages, start=1):
-                text = page.extract_text() or ""
-                records.append({
-                    "file_name": file_name,
-                    "page_number": page_num,
-                    "text_content": text.strip()
-                })
-        except Exception as e:
-            print(f"Error reading {file_name}: {e}")
+### ✅ 2️⃣ **Modify `search_graph_db_for_documents_by_psku` tool**
 
-# === SAVE TO PARQUET ===
-df = pd.DataFrame(records)
-df.to_parquet(output_file, engine="pyarrow", index=False)
+Replace its `return` statement with a table-formatted string:
 
-print(f"✅ Done! Extracted {len(df)} pages from {len(os.listdir(folder_path))} PDFs.")
-print(f"Saved to: {output_file}")
+```python
+@tool
+def search_graph_db_for_documents_by_psku(psku_id: str) -> str:
+    """
+    Given a PSKU ID, return all connected Document nodes (both incoming and outgoing edges)
+    as a table with columns:
+    [FILE NAME, FILE TYPE, SOURCE, REVISION, VERSION].
+    """
+    df = query_project_hierarchy_utils.get_documents_for_psku(psku_id)
+
+    if df is None or df.empty:
+        return f"No documents found for PSKU {psku_id}."
+
+    # ✅ Return as Markdown-style table for consistent rendering
+    return df.to_markdown(index=False)
 ```
 
 ---
 
-### 💡 Notes
+### ✅ Optional (for completeness)
 
-* If you want to include **subfolders**, replace the loop with:
+If **any** other document-returning tools exist (like `search_graph_db_for_project_info` when `target_node_type == "Document"`), you can apply a similar pattern:
 
-  ```python
-  for root, _, files in os.walk(folder_path):
-      for file_name in files:
-          ...
-  ```
-* You can later load your `.parquet` file easily:
+```python
+if target_node_type.lower() == "document" and not hierarchy_search_results.empty:
+    return hierarchy_search_results.to_markdown(index=False)
+```
 
-  ```python
-  df = pd.read_parquet(r"C:\path\to\output\pdf_texts.parquet")
-  ```
+---
 
-Would you like me to modify it to use **multithreading** for faster extraction (useful if PDFs are large)?
+### 💡 Summary of changes
+
+| File Section                            | Action                                             | Code             |
+| --------------------------------------- | -------------------------------------------------- | ---------------- |
+| `SYSTEM_PROMPT`                         | Add instruction to always show documents as tables | *see snippet #1* |
+| `search_graph_db_for_documents_by_psku` | Return Markdown-formatted table                    | *see snippet #2* |
+
+---
+
+Would you like me to show the exact modified sections inline within your existing code (so you can copy-paste directly)?
