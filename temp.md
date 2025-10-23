@@ -1,66 +1,59 @@
-Perfect — you only need to make **two small but clear edits**:
+Perfect — here’s a full example that:
 
----
+1. Reads your `data` list (list of dicts).
+2. Compares each item’s `"value"` field against a list `values_to_remove`.
+3. Separates them into:
 
-### ✅ 1️⃣ **Update `SYSTEM_PROMPT`**
+   * `filtered_data`: items with **no overlap**
+   * `removed_data`: items **with overlap**
+4. Saves both lists to `.json` files.
 
-Add this instruction so the LLM always formats document results as tables:
-
-```python
-SYSTEM_PROMPT = """
-...
-When returning document-related results (e.g., file names, file types, sources, revisions, versions), 
-always present them in a clean table format with appropriate column headers, 
-not as a list or plain text.
-...
-"""
-```
-
-📍You can insert that new paragraph right before **“Other Available tools:”** in the prompt.
-
----
-
-### ✅ 2️⃣ **Modify `search_graph_db_for_documents_by_psku` tool**
-
-Replace its `return` statement with a table-formatted string:
+Here’s the code 👇
 
 ```python
-@tool
-def search_graph_db_for_documents_by_psku(psku_id: str) -> str:
-    """
-    Given a PSKU ID, return all connected Document nodes (both incoming and outgoing edges)
-    as a table with columns:
-    [FILE NAME, FILE TYPE, SOURCE, REVISION, VERSION].
-    """
-    df = query_project_hierarchy_utils.get_documents_for_psku(psku_id)
+import json
 
-    if df is None or df.empty:
-        return f"No documents found for PSKU {psku_id}."
+# Example data
+data = [
+    {"title": "Fruit", "value": ["apple", "banana"], "synonyms": ["fruits"]},
+    {"title": "Snack", "value": ["banana", "chips"], "synonyms": ["snack food"]},
+    {"title": "Drink", "value": ["water", "juice"], "synonyms": ["beverage"]}
+]
 
-    # ✅ Return as Markdown-style table for consistent rendering
-    return df.to_markdown(index=False)
-```
+# List of values to remove
+values_to_remove = ["banana", "chips"]
 
----
+# Separate data into filtered and removed
+filtered_data = []
+removed_data = []
 
-### ✅ Optional (for completeness)
+for item in data:
+    values = set(item.get("value", []))
+    if values & set(values_to_remove):  # check overlap
+        removed_data.append(item)
+    else:
+        filtered_data.append(item)
 
-If **any** other document-returning tools exist (like `search_graph_db_for_project_info` when `target_node_type == "Document"`), you can apply a similar pattern:
+# Save to JSON files
+with open("filtered_data.json", "w") as f:
+    json.dump(filtered_data, f, indent=2)
 
-```python
-if target_node_type.lower() == "document" and not hierarchy_search_results.empty:
-    return hierarchy_search_results.to_markdown(index=False)
+with open("removed_data.json", "w") as f:
+    json.dump(removed_data, f, indent=2)
+
+print("Filtered items saved to filtered_data.json")
+print("Removed items saved to removed_data.json")
 ```
 
 ---
 
-### 💡 Summary of changes
+### ✅ What this does:
 
-| File Section                            | Action                                             | Code             |
-| --------------------------------------- | -------------------------------------------------- | ---------------- |
-| `SYSTEM_PROMPT`                         | Add instruction to always show documents as tables | *see snippet #1* |
-| `search_graph_db_for_documents_by_psku` | Return Markdown-formatted table                    | *see snippet #2* |
+* `values & set(values_to_remove)` → finds intersection between the two sets.
+* If overlap exists → item goes into `removed_data`.
+* Otherwise → item goes into `filtered_data`.
+* Both lists are saved as formatted JSON (`indent=2` for readability).
 
 ---
 
-Would you like me to show the exact modified sections inline within your existing code (so you can copy-paste directly)?
+Would you like to **add a comment/note** in the JSON file (e.g., why something was removed)? JSON doesn’t support comments natively, but we can include a `"note"` field in each removed item if you’d like.
