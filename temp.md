@@ -1,215 +1,91 @@
-Excellent question — this `streamlit_app.py` is a *UI entrypoint* for your **Knowledge Assistant (KA)** built on top of LangGraph and the `skybound_knowledge_assistant` module.
+Perfect — that’s a clean way to test your **Knowledge Assistant** in batch mode, without Streamlit.
 
-Let’s unpack **how messages flow** in this system step-by-step, and how you can **bypass Streamlit** to directly test the assistant with your own message inputs using the underlying functions (`chat_graph_agent`, `graph_memory_utils`, and `ka_main`).
-
----
-
-## 🧩 Step-by-step Message Flow
-
-Here’s the full lifecycle when a user chats for the first time and continues a conversation.
+Below is a ready-to-use Python function that takes a list of user queries, runs them sequentially through your assistant (`chat_graph_agent`), and returns a full list of message dicts containing `"role"` and `"content"` — including both the human and AI messages in chronological order.
 
 ---
 
-### **1️⃣ Initial Setup**
-
-When `knowledge_assistant_page()` runs:
-
-* The app calls `chat_graph_agent.init_graph()`
-  → This initializes the LangGraph workflow used to orchestrate the assistant (tools, memory, etc).
-
-* Then Streamlit checks session variables:
-
-  ```python
-  st.session_state.messages = []  # if first time
-  st.session_state.conversation_id = None
-  ```
-
-So, the system starts with an *empty* conversation.
-
----
-
-### **2️⃣ User sends the first message**
-
-When a user enters something in the chat input:
+### ✅ **Function: `run_chat_sequence`**
 
 ```python
-user_input = st.chat_input("Enter your message")
-```
+from skybound_knowledge_assistant import chat_graph_agent, graph_memory_utils
 
-→ The message is added to `st.session_state.messages`:
+def run_chat_sequence(user_queries: list[str], user_id: str = "KA-DEVS-DEFAULT-USER"):
+    """
+    Test a sequence of user queries with the Knowledge Assistant and return the full chat history.
+    
+    Args:
+        user_queries (list[str]): List of user messages to send in order.
+        user_id (str): Optional user ID (default = KA-DEVS-DEFAULT-USER).
 
-```python
-st.session_state.messages.append({"type": "human", "content": user_input})
-st.session_state.messages.append({"type": "typing", "content": ""})
-```
+    Returns:
+        list[dict]: Ordered list of messages including both user and assistant responses.
+                    Each element looks like {"role": "human"|"ai", "content": "message text"}.
+    """
 
-→ Then `st.session_state.awaiting_response = True`, and the app reruns.
+    # Initialize graph and start a new conversation
+    chat_graph_agent.init_graph()
+    new_convo = graph_memory_utils.create_new_user_chat(user_wwid=user_id)
+    conversation_id = new_convo.conversation_id
 
----
+    # Store full conversation history locally
+    conversation_log = []
 
-### **3️⃣ Assistant processes the message**
+    for user_input in user_queries:
+        # Add human message
+        conversation_log.append({"role": "human", "content": user_input})
 
-On the next rerun, since:
+        # Get assistant response
+        ai_response = chat_graph_agent.get_response(user_input=user_input)
 
-```python
-if st.session_state.awaiting_response:
-```
+        # Add AI message
+        conversation_log.append({"role": "ai", "content": ai_response.content})
 
-the app enters the “response processing” phase.
+        # (Optional) Print each round
+        print(f"\n👤 User: {user_input}\n🤖 Assistant: {ai_response.content}\n")
 
-Then it:
+    # Save the conversation to memory graph (optional)
+    graph_memory_utils.save_user_chat_history_by_id(
+        user_wwid=user_id,
+        conversation_id=conversation_id,
+        messages=[
+            type("Msg", (), msg) for msg in conversation_log  # mock objects if needed
+        ],
+    )
 
-1. Removes the `"typing"` message.
-
-2. Finds the last `"human"` message (`last_user_message`).
-
-3. Chooses whether to run **locally** or call the **feature/dev endpoint**:
-
-   * **Local** → `chat_graph_agent.get_response(user_input=last_user_message)`
-   * **Remote** → `requests.post()` to `/ka/message` endpoint.
-
-4. The local function returns an `AIResponse` object:
-
-   ```python
-   ai_response = chat_graph_agent.get_response(user_input=last_user_message)
-   ```
-
-   containing:
-
-   ```python
-   ai_response.content  # text reply from the assistant
-   ai_response.tools    # tools triggered (if any)
-   ai_response.memory   # graph/memory updates
-   ```
-
-5. This response is appended to session state:
-
-   ```python
-   st.session_state.messages.append({"type": "ai", "content": ai_response.content})
-   ```
-
-Then Streamlit reruns to display it.
-
----
-
-### **4️⃣ History persistence**
-
-The functions from `graph_memory_utils` are responsible for **storing, loading, and deleting** conversation history in your knowledge graph database.
-
-Key functions:
-
-* `create_new_user_chat(user_wwid)` → starts a new conversation and returns a conversation_id.
-* `load_user_chat_history_by_id(user_wwid, conversation_id, for_ui=False)` → loads all historical messages.
-* `save_user_chat_history_by_id(...)` → saves a list of messages (used for rollback, etc.)
-* `get_user_conversations(user_wwid)` → lists past conversation IDs for dropdown.
-
-So the messages from both user and assistant are **stored in the graph memory** and can be reloaded later.
-
----
-
-## 🧠 Summary of Data Flow
-
-| Step     | Function                                            | Purpose                        |
-| -------- | --------------------------------------------------- | ------------------------------ |
-| Init     | `chat_graph_agent.init_graph()`                     | Builds the LangGraph agent     |
-| New Chat | `graph_memory_utils.create_new_user_chat()`         | Creates new conversation_id    |
-| Send Msg | `chat_graph_agent.get_response(user_input=...)`     | Runs the LLM + tools + graph   |
-| Save     | `graph_memory_utils.save_user_chat_history_by_id()` | Persists conversation messages |
-| Load     | `graph_memory_utils.load_user_chat_history_by_id()` | Fetches prior history          |
-
----
-
-## 💻 How to Call These Functions Yourself (without Streamlit)
-
-You can replicate the exact chat cycle from a Python shell or notebook:
-
-```python
-from skybound_knowledge_assistant import chat_graph_agent, graph_memory_utils, main as ka_main
-
-# 1. Initialize the graph (must do once)
-chat_graph_agent.init_graph()
-
-# 2. Create a new conversation
-user_id = "KA-DEVS-DEFAULT-USER"
-new_convo = graph_memory_utils.create_new_user_chat(user_wwid=user_id)
-conversation_id = new_convo.conversation_id
-
-# 3. Send first human message
-user_input = "Show me all projects updated last week."
-ai_response = chat_graph_agent.get_response(user_input=user_input)
-
-print("AI:", ai_response.content)
+    return conversation_log
 ```
 
 ---
 
-### To Continue the Conversation
-
-Each new message uses the **same conversation_id**, which the graph tracks internally.
+### 💡 **Example Usage**
 
 ```python
-# Continue with another user message
-next_user_input = "Filter only those with incomplete documentation."
-ai_response = chat_graph_agent.get_response(user_input=next_user_input)
+queries = [
+    "Show me all projects updated last week.",
+    "Filter only those related to documentation.",
+    "Give me their owners and deadlines.",
+]
 
-print("AI:", ai_response.content)
-```
+history = run_chat_sequence(queries)
 
-If your system is using persistent memory (through `graph_memory_utils`), the conversation context will automatically be maintained between messages.
-
----
-
-### To Load Historical Messages
-
-```python
-history = graph_memory_utils.load_user_chat_history_by_id(
-    user_wwid=user_id,
-    conversation_id=conversation_id,
-    for_ui=True
-)
-
-for msg in history.messages:
-    print(msg.type, ":", msg.content)
+for msg in history:
+    print(f"{msg['role'].upper()}: {msg['content']}")
 ```
 
 ---
 
-### To Delete or Roll Back a Conversation
+### 🧠 **What This Function Does**
 
-```python
-graph_memory_utils.delete_user_chat_history_by_id(
-    user_wwid=user_id,
-    conversation_id=conversation_id,
-)
-```
+1. Initializes your assistant’s LangGraph (`init_graph()`).
+2. Creates a fresh conversation via `graph_memory_utils.create_new_user_chat()`.
+3. Iterates over each human query:
 
-or rollback:
-
-```python
-current_convo_raw = graph_memory_utils.load_user_chat_history_by_id(
-    user_wwid=user_id,
-    conversation_id=conversation_id,
-    for_ui=False,
-)
-truncated_msgs = current_convo_raw.messages[:-2]
-graph_memory_utils.save_user_chat_history_by_id(
-    user_wwid=user_id,
-    conversation_id=conversation_id,
-    messages=truncated_msgs,
-)
-```
+   * Logs the human message.
+   * Calls `chat_graph_agent.get_response()` for the AI reply.
+   * Logs the AI’s response.
+4. Optionally saves the conversation to the persistent memory graph.
+5. Returns the full chat log as a Python list.
 
 ---
 
-## 🧪 Testing Summary
-
-If your goal is to test the assistant without Streamlit:
-
-1. Call `chat_graph_agent.init_graph()`.
-2. Create or pick a `conversation_id`.
-3. Call `chat_graph_agent.get_response(user_input="...")` repeatedly with your text.
-4. Optionally manage conversation state with `graph_memory_utils`.
-
----
-
-Would you like me to give you a **ready-to-run Python test script** that simulates a full conversation (human → AI → human → AI) using these functions directly?
+Would you like me to modify it so it can also use the **endpoint version** (Feature or Dev API) instead of local `chat_graph_agent.get_response()`?
